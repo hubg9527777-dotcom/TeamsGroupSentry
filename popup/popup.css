@@ -1,0 +1,32 @@
+*{box-sizing:border-box}body{margin:0;width:360px;padding:0;color:#25354a;background:#f5f8fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;font-size:12px}header{padding:19px 19px 14px;background:white;border-bottom:1px solid #e6eaf0}.tiny{letter-spacing:1px;color:#627e9a;font-size:10px;font-weight:700}h1{font-size:18px;margin:6px 0}header p{color:#7a8a9b;margin:6px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px}.grid>.stat-link{background:white;border:1px solid #e2e8f0;border-radius:9px;padding:12px;display:block;min-width:0;text-align:left;color:#25354a;font-weight:400}.grid b{font-size:25px;display:block}.grid span{color:#73849a;font-size:11px;display:block}.grid .stat-link small{display:block;margin-top:7px;color:#1d60c3;font-size:10px;font-weight:600}.grid .stat-link:hover{border-color:#3776cf;background:#f5f9ff}.grid .stat-link:focus-visible{outline:3px solid #a3c7fb;outline-offset:2px}.hint{margin:4px 16px 10px;padding:10px;border-radius:7px;background:#fff7e6;color:#765718;line-height:1.5}.actions{display:grid;gap:8px;padding:0 16px 16px}button{border:1px solid #cdd9e6;border-radius:8px;padding:10px;background:white;color:#254064;cursor:pointer;font-weight:600}button.primary{background:#1d60c3;border-color:#1d60c3;color:white}button:disabled{opacity:.6}footer{border-top:1px solid #dde5ef;padding:11px 16px;color:#8996a6;font-size:10px;line-height:1.5}
+
+.overlay-opt{padding:9px 14px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;background:#f0f5fb;border-radius:9px;margin:10px 0}.overlay-opt label{font-size:12px;font-weight:650}.overlay-opt select{padding:6px;border-radius:6px;border:1px solid #aabbd0;flex:1;min-width:110px}.overlay-opt span{width:100%;font-size:10px;color:#758498}
+
+/* Account-binding repair: show explicit read-only coverage instead of misleading zeroes. */
+.identity-action{margin:0 16px 10px;padding:12px;background:#fff4df;border:1px solid #e9c985;border-radius:9px;line-height:1.5}
+.identity-action[hidden],.feedback[hidden]{display:none}
+.identity-action strong{color:#684919;font-size:13px}
+.identity-action p{margin:6px 0 9px;color:#685c4d}
+.identity-action button{width:100%;white-space:normal}
+.feedback{margin:0 16px 10px;padding:9px;border-radius:7px;background:#eaf3ff;color:#24527e}
+
+/* Security signal: warning only when the *current* account has unresolved items. */
+.alert-banner{margin:11px 16px 0;padding:11px 12px;background:#fff0f0;border:1px solid #df4141;border-radius:9px;color:#9a1d27;display:grid;gap:4px;line-height:1.45}
+.alert-banner[hidden]{display:none}
+.alert-banner strong{font-size:13px}
+.alert-banner span{font-size:11px}
+body.has-alert header{background:linear-gradient(135deg,#fff0f0,#fffafa);border-bottom:2px solid #da3838}
+body.has-alert header h1{color:#9d1f25}
+body.has-alert .tiny{color:#b5272f}
+.grid>.stat-link.needs-attention{border:2px solid #cc3030;background:#fff0f0;color:#9d1f25}
+.grid>.stat-link.needs-attention b{color:#be202a}
+.grid>.stat-link.needs-attention span{color:#9d1f25}
+.grid>.stat-link.needs-attention small{color:#ac2525}
+.grid>.stat-link.needs-attention:hover{background:#ffe5e5;border-color:#a91d26}
+@media (prefers-reduced-motion: no-preference){body.has-alert .alert-banner{animation:signal-in .2s ease-out}@keyframes signal-in{from{opacity:.55;transform:translateY(-3px)}to{opacity:1;transform:none}}}
+
+/* Non-red attention state is shared with Teams status bar and toolbar badge. */
+.health-banner{display:grid;gap:5px;margin:10px 12px;padding:10px 12px;
+ background:#fff9e9;border:1px solid #d8a23d;border-radius:9px;color:#81571c;font-size:12px}
+.health-banner[hidden]{display:none!important}
+.health-banner strong{font-weight:700}
