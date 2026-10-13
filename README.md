@@ -4,9 +4,9 @@
 
 > **Unofficial, not affiliated with Microsoft.** This is an independent browser extension for observing **locally cached** Teams group-member data. It is **not** a server-authoritative audit system, and it cannot guarantee immediate detection of an actual join.
 
-**2026-10-13 稳定性与安全补充：** 浏览器重启沿用已批准本地账号，不必重复确认；历史恢复点只补回当前账号的数据；不完整 Teams 缓存只读且不会触发新增人员误报。详细见 [整改补充报告](STABILITY_SECURITY_FOLLOWUP_2026-10-13.md)。
+**2026-10-13 稳定性与安全补充：** 浏览器重启沿用已批准本地账号，不必重复确认；历史恢复点只补回当前账号的数据；不完整 Teams 缓存只读且不会触发新增人员误报。详细见 整改补充报告（内部记录已移除）。
 
-**2026-10-13 安全及状态一致性修复：** 详见 [安全审核报告](SECURITY_AUDIT.md) 与 [状态同步修改记录](STATUS_SYNC_FIX_NOTES.md)。弹窗、Teams 右上角状态栏及浏览器工具栏统一红色待办 / 黄色需关注 / 近期已巡检状态；黄色状态不意味着真实入群。
+**2026-10-13 安全及状态一致性修复：** 详见 安全审核报告（内部记录已移除） 与 状态同步修改记录（内部记录已移除）。弹窗、Teams 右上角状态栏及浏览器工具栏统一红色待办 / 黄色需关注 / 近期已巡检状态；黄色状态不意味着真实入群。
 
 ## Popup and toolbar alerts
 
@@ -76,7 +76,7 @@
 
 Extension-origin IndexedDB stores groups, people, membership relationships and review events. Local recovery checkpoints are also stored in the browser profile and are **not encrypted at rest**. Exported backups are password encrypted (PBKDF2-SHA256 + AES-256-GCM). The `unlimitedStorage` permission removes Chrome's default small-extension-storage quota but is **not unlimited physical disk space** or protection from profile deletion. Do not commit exports, captures, HAR files, screenshots, real member IDs or names to public GitHub.
 
-**Security boundary:** MAIN is now a write-completion hint source only; it cannot provide the roster, account ID or token claims for persistence. ISOLATED reads the browser's same-origin IndexedDB directly. This blocks the old forged-roster-via-`postMessage` path, but a compromised Teams origin can still tamper with its own IndexedDB. A per-tab nonce is not proof of a trustworthy page. User-account inference from cached membership is conservative and not an authenticated server login assertion. See [SECURITY_DECISIONS.md](SECURITY_DECISIONS.md) and [SECURITY.md](SECURITY.md).
+**Security boundary:** MAIN is now a write-completion hint source only; it cannot provide the roster, account ID or token claims for persistence. ISOLATED reads the browser's same-origin IndexedDB directly. This blocks the old forged-roster-via-`postMessage` path, but a compromised Teams origin can still tamper with its own IndexedDB. A per-tab nonce is not proof of a trustworthy page. User-account inference from cached membership is conservative and not an authenticated server login assertion. See SECURITY_DECISIONS.md（内部记录已移除） and [SECURITY.md](SECURITY.md).
 
 ## Development and tests
 
@@ -100,7 +100,7 @@ This browser test requires Playwright, local Chromium, and an environment that p
 - The archive contains **source and tests**, not user-specific backup data.
 - This repository currently includes **no LICENSE file**, because the author has not yet chosen a redistribution license. Choose one before describing the project as open source.
 - Before pushing, review staged changes, enable GitHub secret scanning / push protection, and inspect commit history for sensitive files.
-- See [CHANGELOG.md](CHANGELOG.md), [SECURITY_AUDIT.md](SECURITY_AUDIT.md), and [UPGRADE_GUIDE.md](UPGRADE_GUIDE.md).
+- See [CHANGELOG.md](CHANGELOG.md), SECURITY_AUDIT.md（内部记录已移除）, and [UPGRADE_GUIDE.md](UPGRADE_GUIDE.md).
 
 ## Disclaimer
 
