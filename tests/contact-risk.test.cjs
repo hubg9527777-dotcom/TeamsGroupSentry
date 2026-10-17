@@ -1,0 +1,32 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const C=require('../lib/contact-risk.js'),L=require('../lib/logic.js');
+const observation={personId:'8:live:new',name:'张三',evidence:'synthetic'};
+const assess=(people=[],edges=[],previous)=>C.classify(observation,people,edges,previous);
+test('全新 ID 即使没有同名仍需审核',()=>{assert.equal(assess().risk,'STRANGER');assert.equal(assess().severity,'REVIEW');});
+test('与已审核联系人同名不同 ID 最高优先级',()=>{assert.equal(assess([{id:'8:live:old',name:'张三',status:'APPROVED'}]).severity,'CRITICAL');});
+test('与历史群成员同名不同 ID 高优先级',()=>{assert.equal(assess([{id:'8:live:old',name:'张三',status:'LEGACY'}],[{personId:'8:live:old'}]).risk,'IMPERSONATION_MEMBER');});
+test('可信同一 ID 改名不能视作陌生 ID',()=>{assert.equal(assess([{id:observation.personId,name:'李四',status:'APPROVED'},{id:'8:live:other',name:'张三',status:'APPROVED'}]).risk,'TRUSTED');});
+test('历史未审核人员不可信',()=>assert.equal(assess([{id:observation.personId,status:'NEW'}]).risk,'UNREVIEWED'));
+test('历史群成员仍待核实',()=>assert.equal(assess([{id:observation.personId,status:'LEGACY'}],[{personId:observation.personId}]).risk,'HISTORICAL_MEMBER'));
+test('撤销信任优先于历史出现',()=>assert.equal(assess([{id:observation.personId,status:'REVOKED'}]).risk,'REVOKED'));
+test('缺失或非法 ID 不认定陌生好友身份',()=>{for(const id of ['', '19:group@thread.v2','张三','8:a b'])assert.equal(C.classify({...observation,personId:id},[],[]).risk,'MISSING_ID');});
+test('名称兼容字符只用于碰撞检查，不合并 ID',()=>{const a=C.classify({personId:'8:b',name:'Ａlice'},[{id:'8:a',name:'Alice',status:'APPROVED'}],[]);assert.equal(a.risk,'IMPERSONATION_CONTACT');assert.equal(a.matches[0].id,'8:a');});
+test('历史别名也可提示碰撞',()=>assert.equal(assess([{id:'8:old',name:'新名字',aliases:['张三'],status:'APPROVED'}]).risk,'IMPERSONATION_CONTACT'));
+test('重复观察风险不会消失、发现时间不变',()=>{const first=C.evolve(null,observation,assess(),100);const next=C.evolve(first,observation,assess([{id:observation.personId,status:'NEW'}],[],first),200);assert.equal(next.risk,'STRANGER');assert.equal(next.status,'OPEN');assert.equal(next.at,100);assert.equal(next.reviewRevision,1);});
+test('普通批准不能自动抹掉请求风险',()=>{const p=C.evolve(null,observation,assess(),100);assert.equal(C.evolve(p,observation,assess([{id:observation.personId,status:'APPROVED'}],[],p),200).status,'OPEN');});
+test('已核实请求重复观察不反复弹出',()=>{const p={...C.evolve(null,observation,assess(),100),status:'RESOLVED'};assert.equal(C.evolve(p,observation,assess([{id:observation.personId,status:'APPROVED'}],[],p),200).status,'RESOLVED');});
+test('结束提醒不批准，重复观察不会重开相同提醒',()=>{const p={...C.evolve(null,observation,assess(),100),status:'ACKNOWLEDGED'};assert.equal(C.evolve(p,observation,assess([],[],p),200).status,'ACKNOWLEDGED');});
+test('已核实后撤销信任重新报警',()=>{const p={...C.evolve(null,observation,assess(),100),status:'RESOLVED'};assert.equal(C.evolve(p,observation,assess([{id:observation.personId,status:'REVOKED'}],[],p),200).status,'OPEN');});
+test('结束后发现更严重的同名证据会重开',()=>{const p={...C.evolve(null,observation,assess(),100),status:'ACKNOWLEDGED'};assert.equal(C.evolve(p,observation,assess([{id:'8:old',name:'张三',status:'APPROVED'}],[],p),200).status,'OPEN');});
+test('证据缺失不能降低未处理最高风险',()=>{const a=assess([{id:'8:old',name:'张三',status:'APPROVED'}]);const p=C.evolve(null,observation,a,100);assert.equal(C.evolve(p,observation,assess([],[],p),200).severity,'CRITICAL');});
+test('普通聊天和群成员记录不产生请求判断',()=>{const group={id:'19:g@thread.v2',isGroup:true,members:[{id:'8:a'},{id:'8:b'}]};assert.ok(L.parseRecord(group).id);assert.equal(L.parseDirectRecord(group),null);assert.equal(L.parseDirectRecord({...group,isGroup:undefined}),null);});
+test('单聊需明确类型和不同完整 ID',()=>{const row={id:'19:d@thread.v2',type:'direct',members:[{id:'8:a'},{id:'8:b'}]};assert.ok(L.parseDirectRecord(row));assert.equal(L.parseDirectRecord({...row,isGroup:true}),null);assert.equal(L.parseDirectRecord({...row,members:[{id:'8:a'},{id:'8:a'}]}),null);});
+
+test('撤销信任的同一提醒在明确结束后不每轮重开',()=>{const a=assess([{id:observation.personId,status:'REVOKED'}]);const p={...C.evolve(null,observation,a,100),status:'ACKNOWLEDGED',reviewDecision:'CLOSED_WITHOUT_TRUST'};assert.equal(C.evolve(p,observation,a,200).status,'ACKNOWLEDGED');});
+test('资料改名后保留原同名风险姓名证据',()=>{const a=assess([{id:'8:old',name:'张三',status:'APPROVED'}]);const p=C.evolve(null,observation,a,100);const o={...observation,name:'李四'};const next=C.evolve(p,o,C.classify(o,[],[],p),200);assert.equal(next.nameSnapshot,'李四');assert.equal(next.collisionNameSnapshot,'张三');assert.deepEqual(next.nameHistory,['张三']);assert.equal(next.severity,'CRITICAL');});
+
+test('三处显示摘要说明已审核联系人同名与 ID 差异，不输出私人资料',()=>{const s=C.summary([{type:'CONTACT_REQUEST',status:'OPEN',risk:'IMPERSONATION_CONTACT',nameSnapshot:'私密姓名',personId:'8:private'}]);assert.match(s.headline,/1 人待核实/);assert.match(s.reason,/已审核联系人同名/);assert.match(s.compactReason,/ID 不同/);assert.equal(s.priority,'CRITICAL');assert.doesNotMatch(JSON.stringify(s),/私密姓名|8:private/);});
+test('普通陌生请求摘要不能误说同名',()=>{const s=C.summary([{type:'CONTACT_REQUEST',status:'OPEN',risk:'STRANGER'}]);assert.match(s.reason,/首次出现/);assert.doesNotMatch(s.reason+s.compactReason,/同名/);});
+test('缺 ID 时摘要明确无法判断',()=>{const s=C.summary([{type:'CONTACT_REQUEST',status:'OPEN',risk:'MISSING_ID'}]);assert.match(s.reason,/证据不足/);assert.match(s.compactReason,/无法确认/);});
+test('三处显示摘要保留最高风险人数与全部待核实数量',()=>{const s=C.summary([{type:'CONTACT_REQUEST',status:'OPEN',risk:'IMPERSONATION_CONTACT'},{type:'CONTACT_REQUEST',status:'OPEN',risk:'STRANGER'}]);assert.equal(s.pending,2);assert.match(s.headline,/1 人待核实/);});
+test('处理完毕清空风险标题、原因及建议',()=>{const s=C.summary([{type:'CONTACT_REQUEST',status:'ACKNOWLEDGED',risk:'IMPERSONATION_CONTACT'}]);assert.equal(s.pending,0);assert.equal(s.reason,'');assert.equal(s.compactReason,'');assert.equal(s.advice,'');assert.equal(s.priority,'NONE');});

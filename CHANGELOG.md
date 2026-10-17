@@ -1,60 +1,69 @@
-## 2026-10-13 安全复审与巡检稳定性补丁（保持版本 1.0.0 和数据结构）
+# 1.0.1 · 当前界面校验、多条正文与安全重点（2026-10-16）
 
-详细说明参见 `SCAN_RELIABILITY_FIX_2026-10-13.md`：后台与手动扫描合并、限时读取、可见页面补偿、失败诊断、缓存源限速、不完整数据只读保护。
+撤销历史缓存独立报警；当前界面证据消失即撤下本地提示。缓存只补充同一可见请求正文；多条预览不再被末条覆盖。弹窗最多 10 条，小栏只末条。安全提示置顶高对比，导航浅底深字固定底栏。版本和权限不变。
 
-# Changelog
+# 1.0.1 · 本人过滤与编号提醒（2026-10-16）
 
-## v1.0.0 — First public release
+按已批准缓存范围下的本人完整 ID 排除自己的末条消息，清理对应旧缓存提醒；同名不同 ID 不排除。请求按 1、2…分卡；红边与红色重点、白色正文，安全建议只显示一次，展开不重复摘要。版本与权限保持不变。
 
-- Monitors locally cached Teams group membership changes with a 30-second fallback poll and accelerated cache-write signals.
-- Adds critical-group alert prioritization, a Teams-page status overlay, red popup warnings and a Chrome toolbar badge.
-- Includes group aliases, cross-group identity indexing, review workflows, whitelist policy and identity-bound read-only safety mode.
-- Supports password-encrypted exports, non-destructive imports, encrypted historical backup comparison, and local recovery checkpoints.
-- Preserves compatible historical extension IndexedDB schemas and account partitions when upgrading in place.
-- Ships as an unpacked Manifest V3 extension with no third-party npm dependencies.
+# 1.0.1 · 本地请求缓存摘要更新（2026-10-16）
 
-**Limitations:** locally cached rosters are not authoritative real-time server membership records. MAIN may still receive spoofed scan hints; roster data is read in ISOLATED, but Teams IndexedDB remains an unverified data source. Refer to SECURITY_AUDIT.md.
+独立读取真实核对的 quarantine 会话末条摘要，不要求手动预览；正文缺失时明确引导先预览、核实后再接受。保持版本和权限。新请求预览前缓存与真实 Chrome 端到端时延仍待现场验证。
 
-### Security-hardened build of 1.0.0 (same public version)
+# 1.0.1 · 红色请求提醒与可见消息预览 · 2026-10-16
 
-- Moved roster scanning to the ISOLATED content-script world; MAIN now only signals cache writes.
-- Removed page-hook token/JWT inspection and roster `window.postMessage` transfer.
-- Blocked legacy MAIN ingestion and accidental re-binding of an unrelated user to a legacy provisional account.
-- Added conservative account inference from cached group rosters and 397-group scanner regression tests.
-- Clarified that source-folder VeraCrypt is not required and does not protect the browser-managed roster database.
+- 状态栏收起/展开、扩展弹窗和工具栏徽标统一使用红色高优先级提醒；不等群巡检。
+- 请求列表显示标题，选中请求显示官方发起者姓名；用户点击官方预览后自动读取可见的最后两条文字消息，各限 300 字。
+- 会议邀请者与消息作者分开；标题/会话 ID 不当人员 ID。缺 ID 仍待核实，不据姓名断言陌生或冒充。
+- 预览摘录只存当前浏览器会话，最多 20 请求，不写人员、关系、审核与备份；文本安全渲染、不打开消息链接。
+- 不自动切换请求或点击预览，不接受/阻止/回复，不新增权限；保留单群绑定及姓名匹配修复。
 
-### Final security audit (same public version 1.0.0)
+# 1.0.1 · 候选姓名补全与本人线索查找 · 2026-10-16
 
-- Added strict, size-bounded encrypted backup envelope validation before Base64 decoding and AES-GCM decryption; no change to existing backup format or member indices.
-- Added regression tests for malformed, oversized and truncated encrypted backup input.
-- Clarified that the unpacked extension source folder does not contain the live member database and has no mandatory VeraCrypt location requirement. Browser-profile data remains outside the source folder.
-- Completed the latest audit in `SECURITY_AUDIT.md`; live Teams/Chrome/Edge acceptance tests are still required before claiming production-grade coverage.
+- 修复首次绑定未合并资料姓名的问题；同名 ID 保持分开，同级姓名冲突明确提示。
+- 新增「查找 / 刷新本人 ID」：条件探测本地明确身份线索，唯一对应时推荐姓名、完整 ID 和来源，等待用户确认；线索缺失不猜选。
+- 自动推荐不直接绑定；尾号及本人确认不可跳过，冲突时只读保护。手动候选默认收起，旧推荐失效后清除。
+- 排除凭据类资料存储，不读取 Token、Cookie、请求头或消息正文，不新增权限。
+- 当前支持的是可选缓存形状；尚未在测试新号证明实际命中，不宣称已识别用户真实 ID。完整回归见 TESTING.md。
 
-### Identity-guard usability/security fix (still public version 1.0.0)
+# 1.0.1 · 单群新号手动绑定 · 2026-10-16
 
-- Fixed an overly strict self-ID heuristic: a single incomplete inactive roster no longer invalidates a near-universal member ID hint (requires >=95% coverage and a distinct leader; this remains **unverified local inference**).
-- Added an **explicitly approved**, persistent hash of the Teams conversation-cache database scope. After a one-time account confirmation, read/write may resume without an inferred self ID **only** when >=80% of prior group IDs and >=80% of their member rosters still match; the conservative member-overlap threshold is >=60% per group.
-- Unrecognized or conflicting accounts, incomplete scans and dissimilar rosters remain read-only; they never auto-rebind or replace the prior account baseline.
-- The Teams-page corner badge now uses amber for identity-only read-only protection; red is reserved for pending identity/urgent review. If both are present, red wins.
-- Does not alter IndexedDB schema, external dependencies, permissions, membership baseline, backup format or public version.
+- 新的独立资料首次建档最低可用 1 个完整有效群；不自动选择本人，完整 ID + 尾号 + 明确确认。
+- 保留原多群账号连续性保护，旧历史不覆盖、不重新初始化；小号单独记录批准范围和初始群，后续安全对应时不反复确认。
+- 修复已确认但初始基线尚未建立、确认时效过期后无法重新确认的问题。
+- 扩展弹窗与安全中心均提供完整 ID 核对；名单未显示的已观察 ID 可手动输入。
+- 新号只有 1 群、重启、冲突、旧数据保护及实际弹窗/IndexedDB 回归已覆盖。完整测试见 TESTING.md。
 
+# 1.0.1 · 请求变化独立提醒 · 2026-10-16
 
-### 人工核查更新（公开版本仍为 1.0.0）
-- 保留旧成员基线，同时记录只供核查的最新候选成员 ID。
-- 群组详情新增缓存差异对照、人工核实确认和安全拒绝条件。
-- 确认时以单事务更新目标群基线、仅该群的当前关系以及本地审计历史；陌生人身份状态不被自动批准。
-- 旧数据与升级恢复点不主动清理。
+- 根据真实 Teams 当前请求页面，只读核对入口、虚拟请求列表、会议邀请及接受/阻止面板属性，加入保守适配。
+- 请求界面观察不再排队等待群巡检；DOM 变化约 250ms 合并，失败周期重试。群缓存挂起、只读账号仍可显示通用提醒。
+- 扩展弹窗、收起和展开状态栏以醒目橙色显示请求待核实，明确人员 ID 待核实、消息内容未读取，不自动称为好友、陌生人或冒充。
+- 请求数量区分入口徽标与可见行；会议标题、会话 ID 绝不冒充人员身份。
+- 每个 Teams 页面独立会话记录，弹窗只读取活动 Teams 标签页；不写人员/群/身份审核记录，不新增权限。
+- 「已查看本次提醒」仅收起本地提示；重复证据不重开，新证据恢复；群事件及原红色身份审核不受影响。
+- 防止慢状态响应覆盖更快的请求提示。完整浏览器重启或页面刷新后重新观察现存请求，不称为新消息。
+- 测试见 TESTING.md。真实首条私聊送达延迟、正文和发送者 ID 捕获仍未验证。
 
-### 状态一致性修复与安全复审（2026-10-13，公开版本仍为 1.0.0）
-- 后台共享状态口径统一弹窗、Teams 网页右上角与 Chrome 工具栏 Badge，黄色名单核查/只读/失联/未初始化可见；跨账号历史计数不串用。
-- 修复巡检成功但群成员无变化时状态栏不及时更新、异常情况下 Badge 不恢复的问题。
-- 修复“重要未处理”内部跳转误切为全部待处理的筛选问题。
-- 测试 125/125 通过；浏览器环境 E2E 仍未获管理员网络授权，见 SECURITY_AUDIT.md。
+## 同日较早：三处红色风险提醒
 
-### 单账号免确认、恢复分区隔离与缓存完整性加固（2026-10-13，公开版本号不变）
-- 保持浏览器重启后先前批准账号的无感使用；编辑操作新增账号分区一致性验证。
-- 历史恢复点的显示、核验与补回严格限制当前账号；不跨账号混入旧成员。
-- 本地缓存读取不完整时只读保护，不再将缺失/新增缓存误写为已确认变更，也不通知疑似新增。
-- 补充后台载荷边界检查，恢复点失败可重试，清理无效的状态计数变量。
-- 继续沿用现有数据库 Schema、图标与群成员切换功能；新增/回归测试累计 131 项通过。
-- 无法凭本地扩展独立证明 Teams 服务器真实名单，本机常驻数据库也没有额外加密；详见补充报告。
+- 点击扩展的弹窗：顶部红色警告置于统计前，明确显示危险原因、人数和处理入口；仅有联系请求风险时也整体变红。
+- 状态栏收起：红色边框和指示点，直接显示风险标题、待核实人数及“同名但 ID 不同”等原因，保留查看入口。
+- 状态栏展开：保留顶部提示，另有红色警告区、核实建议和醒目的处理按钮。
+- 普通变动不会挤掉风险标题和人数，展开后仍有普通变动入口；处理后清除风险样式，恢复简洁。
+- 新增刷新通知，让已打开的弹窗随巡检/审核更新；防止较早返回的摘要覆盖新状态。
+- 风险摘要只发送通用原因及数量，不将联系人姓名或 ID 放入 Teams 状态栏。
+- 回归：61 项 Node + 16 项原生数据库/DOM + 13 项显示测试，共 90 项通过。
+
+## 同日基础功能：联系请求防冒充增强
+
+- 新增独立请求观察与 ID 优先风险分级；已审核联系人/历史群成员同名不同 ID 明确红色提示。
+- 新增安全中心请求入口、搜索筛选、完整 ID 对照、复制、原联系人记录、逐项核实和提醒处理审计。
+- 状态栏、弹窗和徽章使用同一请求统计，不混入群事件数；警告有直接原因及处理入口。
+- 请求发现与人员信任分离；重复观察、重启、资料变化不会自动消除未审核风险；普通已查看不能批准身份。
+- 通用聊天邀请要求精确单聊绑定；无法确认类型或 ID 时显示证据不足，不能认定好友请求。
+- 保留原群成员陌生 ID、跨群、模糊名单与聊天跳转流程；恢复点和备份包含新增请求审计。
+- 保护同版本功能更新前恢复点；保护请求和审核历史不被普通事件过期清理。
+- 56 项 Node 回归 + 16 项原生浏览器测试通过。
+
+限制：没有可靠的缓存请求结构或真实 Teams 样本，当前为有限的被动界面观察；没有接受前拦截，不能保证第一时间覆盖。来源代码实际版本标记 1.0.3，按用户要求交付公开版本为 1.0.1。

@@ -1,19 +1,60 @@
-# Security policy
+# 安全设计与覆盖边界
 
-TeamsGroupSentry is an independent Chrome extension relying on Teams local browser cache formats. It is not a server-authoritative security control.
+## 身份和请求分离
 
-## Reporting a vulnerability
+- 身份判断使用完整 ID 精确比较，不规范化或合并人员 ID。姓名做 NFKC、大小写和空白规范化只用于查找碰撞；历史别名和人工备注也只作风险线索。
+- 请求保存在原 `events` 表，类型为 `CONTACT_REQUEST`。发现请求不插入 `people`，不创建群关系，不设置 `APPROVED`。首次陌生标记与风险证据保留，重复观察不消除未审核风险。
+- 风险比较发生在同轮群数据写入前，避免同轮发现即被判为历史身份。现有群陌生 ID 事件仍由原逻辑生成。
+- 仅逐项审核明确的完整人员 ID 才可保存可信身份；关闭本地提醒不改变身份信任。通用事件编辑及批量已查看拒绝处理请求记录。审核动作有独立审计，旧记录不覆盖。
+- 重复观察保持首次时间、审核状态；资料变化保存曾用姓名；未处理最高风险及当时的碰撞姓名不会因后续资料缺失而下降。
 
-Do **not** open public issues with credentials, cookies, JWTs, private chat content, real member IDs or plaintext snapshots. Before public release, configure **GitHub private vulnerability reporting** in repository Settings → Security → Private vulnerability reporting, if available. Otherwise contact the repository maintainer privately using a verified channel.
+## 当前存在性与缓存正文严格分开
 
-In reports, include the affected release number, a minimal synthetic reproduction and the security impact. Do not publicly publish working exploitation details against live Teams accounts.
+当前请求只由已核对的可见 Teams 请求入口徽标、列表或接受/阻止面板成立。缓存隔离状态不是当前请求证明。旧 CACHE 会话记录不再显示；新 CACHE 来源的当前警示拒绝接收。没有当前界面证据时清空本地当前提醒与其摘录，不接受/阻止请求、不改变信任、不删除身份审核。
 
-## Supported version
+没有可关联当前请求行时不启动缓存正文读取；当前会话键变化时独立触发。缓存只按与当前可见请求行相同的会话键定向补正文，避免被旧候选限额挤掉。入口只有数字、无会话键时不猜身份或用旧缓存填列表。可见请求行消失后不以历史摘录维持提醒。未渲染/隐藏/冻结/关闭页面可能漏检，这与“服务器没有请求”不同。
 
-Initial public release: v1.0.0. No long-term update or support commitment is currently made.
+## 真实字段与只读范围
 
-## Known limitations
+核对过的本地结构为 Teams:conversation-manager:* / conversations(id)。type=Chat/Meeting 且 memberProperties.relationshipState.inQuarantine=true 仅作为待关联缓存候选；截图反馈已经证实这个标记可能出现在历史/本人记录，不能单独报警。
 
-- MAIN-world scripts can forge or suppress **scan hints**, but no longer supply roster snapshots. The ISOLATED scan remains dependent on the integrity of the Teams origin's IndexedDB, which a compromised same-origin page may alter. See `SECURITY_DECISIONS.md`.
-- Local IndexedDB and local checkpoints are plaintext within the Chrome profile; external backups are password-encrypted.
-- Undocumented Teams cache structures can change; a green status is not proof of no actual intrusion.
+仅投影 chatTitle.longTitle/shortTitle 和 lastMessage.content/contenttype/messagetype/imdisplayname/from/fromUserId/id/version/composetime/originalarrivaltime。作者 ID 唯一对应同记录成员后才使用；不读取 *InToken 值、Cookie、Token 或请求头。不调用任何内部接口。messages 实测为字符串，本实现不解析猜测其内容。
+
+只在恰有一个会话库时读取，readonly 事务，意外升级 abort；约 1.8 秒超时，关闭本读取器连接，最多 20,000 条记录和 20 个候选。多库、读取错误不阻塞界面警报。本人 ID 只从缓存名摘要对应的 approved 范围、verified/manualBound 资料取得；仅回到 ISOLATED 世界精确比较，不发给 MAIN，不用全局 active 账号混配其他页签。
+
+## 多条消息、安全渲染与存储
+
+官方预览 DOM 沿用严格的选中行、官方面板、标题/会话关联及 aria-labelledby 的 content/author 节点对应。单聊作者不一致拒绝，会议各自作者分别展示；普通聊天、隐藏区域、切换中的不一致正文不读取。最多保留 10 条已取得文字、每条 300 字；姓名/标题最多 120 字，最多 20 个当前请求。缓存末条不会覆盖已经取得的多条预览；独立 latestMessage 只用于小栏摘要。不能据此声称完整历史或服务器实时最后一条。
+
+缓存 HTML 仅在 inert template 中转文字，不加载图片/执行脚本；外部文本清理控制符/方向符。所有正文以 textContent 显示，不执行 HTML、不自动打开链接。
+
+后台只接收受限标题、姓名、作者/文字、会话键及消息修订摘要、有限 latestMessage；未知附加字段丢弃。不接收原始会话/消息/作者 ID 或认证字段。storage.session 按页签、Chrome documentId 与随机文档标记隔离；不写 people/groups/edges/events/meta，不进入长期备份。本人资料查询只返回已人工确认的本人 ID 到隔离读取器，不建立新身份。
+
+## 权限、失败与原数据
+
+公开版本 1.0.1，权限和 host 不增加。没有自动预览、切换请求、滚动聊天、接受、阻止、回复、打开链接或服务内部请求。预览副作用未验证，不能以接受按钮保留断言安全。
+
+原数据库、版本、账号复合键、审核历史不改。功能构建标记继续触发原升级前恢复点，失败沿用只读保护。普通群陌生 ID 和身份审核提示仍按原规则存在，不因当前界面提醒撤下而结束审核。
+
+网页/缓存不是微软签名身份认证；已失陷同源页面可制造误报。未知身份/同名不构成可信，只有核对完整 ID 的人工审核才可批准。独立 Chrome 资料隔离，同页切换微软账号仍须刷新。
+
+DOM 250ms 合并、5 秒补偿、缓存 1.8 秒超时都是调度参数，受后台节流/冻结影响。未完成真实 Chrome 安装端到端验收、从发送起的时延、全新请求预览前缓存或直接入群邀请者验证。
+
+## 发布
+
+ZIP 使用明确白名单，只有运行源码、说明和虚构测试。不得加入真实缓存、用户截图、控制台转储、凭据或审核数据。本轮未修改原始源码、已安装扩展路径或用户数据库。
+
+## 少量群的首次人工绑定
+
+只向没有旧账号数据的独立资料开放，至少一个有效群、单一会话缓存、完整且无重复名单；候选是待人工核对的成员，不是自动推断的本人。选择须落在实际观察 ID 集合内，少量群需完整 ID、尾号和明确确认。绑定保存初始缓存范围与群锚点，不提升任何其他成员为可信。
+
+后续沿用只针对这项人工批准的小号范围；要求相同批准范围、已确认本人 ID 及初始群内至少一个既有同群 ID。缺失或冲突保持只读。旧账号仍使用原有多群连续性规则，不靠一个共同群合并账号。该连续性是本地证据，不能认证微软当前登录状态；同一缓存仍可能保留退出群/旧账号数据，用户必须核对本人 ID 并按账号使用独立 Chrome 资料。没有引入登录 Token/凭据读取或新的权限。
+
+## 本人线索探测和确认
+
+新增线索只来自原有 ISOLATED 读取器已读取的本地会话/资料范围，不接受 MAIN 世界发来的身份声明。资料本人标记只在与唯一会话数据库范围一致的缓存中探测；凭据、认证、Token、Cookie、登录和会话类名称的资料数据库/存储被排除。提取器只访问明确白名单元数据，不读取令牌字段、请求头、消息内容，也不调用接口。
+
+探测的形状为可选适配，未宣称微软提供或保证这些字段。只有唯一完整人员 ID 能对应本次人员名单时才给出候选，不将线索作为服务器认证。它不直接成为 accountHint，不自动绑定或提升信任。仅在用户明确批准后，本地线索才能辅助已批准身份的后续对应；原账号连续性保护仍适用。发现明确身份冲突时保持只读，禁止自动改绑和覆盖。
+
+首次只读姓名合并也只是 UI 投影，不写 people 表。候选需要完整 ID/尾号和明确确认；若推荐存在，不能悄悄换成另一群成员绑定。来源类型仅作为绑定方式元数据保留，不保留消息正文或凭据。推荐变化/消失清除旧自动选择。手动查找会刷新可选资料缓存，不修改 Teams 数据。
+

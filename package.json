@@ -1,9 +1,7 @@
 {
-  "name": "teams-group-sentry-local",
+  "name": "teams-group-sentry",
+  "version": "1.0.1",
   "private": true,
-  "version": "1.0.0",
-  "description": "Local-only Chrome MV3 Teams group roster observation and review",
-  "scripts": {
-    "test": "node --test tests/*.test.cjs tests/worker.integration.cjs"
-  }
+  "scripts": { "test": "node --test tests/*.test.cjs", "test:browser": "node tests/serve.cjs" },
+  "engines": { "node": ">=20" }
 }

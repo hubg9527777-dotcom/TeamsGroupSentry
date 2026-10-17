@@ -1,0 +1,3 @@
+2026-10-16 · Codex in-app browser · synthetic data only
+32/32 native database/DOM tests passed
+No production Chrome installation end-to-end verification.

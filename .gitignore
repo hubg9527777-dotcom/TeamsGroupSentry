@@ -1,29 +1,15 @@
-# Local credentials and environment overrides
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-
-# Local user-data backups and debug captures (never commit personal rosters)
-*.encrypted.json
-*backup*.json
-*.har
-
-# Dependency and tool artefacts
+.DS_Store
 node_modules/
 coverage/
-.DS_Store
-
-# User-exported audit artefacts and browser profiles
-backups/
-exports/
-diagnostics/
-*.tgsbackup
-*.sqlite
-*.sqlite3
-*.db
-chrome-profile/
+*.zip
+*.encrypted.json
+*.backup.json
+*.sqlite*
 *.log
+profile/
+profiles/
+User Data/
+IndexedDB/
+Local Storage/
+Session Storage/
+.env*

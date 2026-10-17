@@ -20,3 +20,41 @@ button.stat:focus-visible{outline:3px solid #9ac4f8;outline-offset:2px}
 .member-switcher .field{gap:7px}
 .member-switcher select{max-width:100%;width:100%;min-width:0}
 .member-switcher .subtle,.member-switcher small{overflow-wrap:anywhere}
+
+/* Event records keep navigation actions visible without making INFO look like an alert. */
+.eventitem{flex-wrap:wrap}
+.eventitem .grow{flex:1 1 370px}
+.badge.info{background:#eaf2fc;color:#426685}
+
+/* Human-reviewable event change details and a clearly scoped bulk-ack action. */
+.event-summary{padding:15px 18px;margin-bottom:14px}
+.event-summary p{margin:7px 0 10px}
+.event-bulk{margin:12px 0 7px}
+.eventitem .event-wrap{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+.event-diff{background:#f6f9fd;border:1px solid #dee8f4;border-radius:8px;margin-top:10px;padding:10px 12px;font-size:12px;line-height:1.6;color:#35516e;overflow-wrap:anywhere}
+.event-diff-head{font-weight:650;color:#264968}
+.event-diff-label{font-weight:650;margin-top:8px}
+.event-select{flex:0 0 auto}
+
+/* Action-first home: immediately recognizable tasks before history diagnostics. */
+.work-first{background:#fff;border-color:#d4e1f0;padding:17px 19px}
+.work-first .statgrid{margin:13px 0 9px}
+.work-first .stat{background:#fafcff;padding:14px}
+.work-first .subtle{display:block;font-size:12px;line-height:1.5;margin-top:8px}
+.stat.yellow strong{color:#a97813}
+.overview-subhead{margin:15px 0 0;font-size:15px;color:#374b61}
+@media(max-width:850px){.statgrid{grid-template-columns:repeat(2,minmax(120px,1fr))}.work-first .statgrid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+
+/* One-time ID picker lives in Settings and never affects the normal UI. */
+.field .column[hidden]{display:none!important}
+
+/* Identity suggestions are local Settings-only UI; popup and overlay stay unchanged. */
+.self-id-panel{border:1px solid #d7e3f2;border-radius:10px;padding:15px;gap:10px;background:#fbfdff}
+.self-id-panel h4,.archive-label-field h4{font-size:14px;color:#243a55}
+.self-id-panel .column{max-width:780px}
+.self-id-panel .self-id-picker{width:100%;max-width:100%;min-width:0}
+.self-id-panel .self-id-chosen{font-size:12px;color:#345779;background:#edf4fe;border-radius:7px;padding:9px 11px;overflow-wrap:anywhere;white-space:normal}
+.archive-label-field{border-top:1px solid #e4ebf3;padding-top:14px;margin-top:7px}
+.archive-label-field p{margin-top:3px}
+
+.request-card{margin-top:12px}.request-danger{background:#fff2f2!important;border:2px solid #c52a32!important;color:#991b1b!important}.request-identity{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}.request-card .btn{margin:10px 8px 0 0}.detailbody strong{overflow-wrap:anywhere}

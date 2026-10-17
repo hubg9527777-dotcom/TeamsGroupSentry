@@ -1,0 +1,7 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {root}=require('./worker-harness.cjs');
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json')));
+test('公开版本 1.0.1，无新增敏感权限或远程域名',()=>{assert.equal(manifest.version,'1.0.1');assert.equal(manifest.manifest_version,3);assert.deepEqual(manifest.permissions,['storage','unlimitedStorage','alarms','notifications','offscreen','scripting']);assert.deepEqual(manifest.host_permissions,['https://teams.live.com/*']);});
+test('所有清单资源存在，重连脚本包含请求观察依赖',()=>{for(const file of manifest.content_scripts.flatMap(s=>[...(s.js||[]),...(s.css||[])]))assert.ok(fs.existsSync(path.join(root,file)),file);const worker=fs.readFileSync(path.join(root,'background.js'),'utf8');assert.match(worker,/TEAMS_CONTENT_FILES=\[.*contact-risk\.js.*request-ui\.js/);});
+test('请求观察脚本不调用联网、凭据、点击或拦截 API',()=>{for(const file of ['lib/request-ui.js','lib/contact-risk.js','lib/request-cache.js']){const s=fs.readFileSync(path.join(root,file),'utf8');assert.doesNotMatch(s,/\bfetch\s*\(|XMLHttpRequest|document\.cookie|localStorage|sessionStorage|\.click\s*\(|preventDefault\s*\(/);}});
+test('开发与安装依赖仅内置 JS，没有远程脚本',()=>{assert.match(manifest.content_security_policy.extension_pages,/connect-src 'self'/);for(const f of ['ui/dashboard.html','popup/popup.html'])assert.doesNotMatch(fs.readFileSync(path.join(root,f),'utf8'),/<script[^>]+https?:/);});

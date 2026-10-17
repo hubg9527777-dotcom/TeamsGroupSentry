@@ -13,8 +13,9 @@
   window.addEventListener('message',e=>{
     if(e.source!==window||e.origin!==location.origin||e.data?.type!==BOOT)return;
     if(typeof e.data.sessionNonce!=='string'||!/^[a-f0-9]{64}$/.test(e.data.sessionNonce))return;
-    if(!nonce)nonce=e.data.sessionNonce;
-    if(nonce===e.data.sessionNonce)
-      window.postMessage({type:READY,sessionNonce:nonce},location.origin);
+    // An extension reload may recreate the isolated context while this MAIN
+    // script persists. Accept the new nonce so cache-write hints resume.
+    nonce=e.data.sessionNonce;
+    window.postMessage({type:READY,sessionNonce:nonce},location.origin);
   });
 })();

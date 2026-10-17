@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "TeamsGroupSentry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minimum_chrome_version": "120",
-  "description": "本地 Teams 群成员变动观察、重点群组缓存变动触发、人员审核与安全备份",
+  "description": "本地群成员变化、可见聊天请求提醒、人员审核与安全备份工具",
   "permissions": [
     "storage",
     "unlimitedStorage",
     "alarms",
     "notifications",
-    "offscreen"
+    "offscreen",
+    "scripting"
   ],
   "host_permissions": [
     "https://teams.live.com/*"
@@ -25,8 +26,13 @@
       "js": [
         "lib/logic.js",
         "lib/name-core.js",
+        "lib/contact-risk.js",
+        "lib/request-ui.js",
+        "lib/self-evidence.js",
         "lib/isolated-reader.js",
+        "lib/request-cache.js",
         "content.js",
+        "lib/request-view.js",
         "overlay/overlay.js"
       ],
       "run_at": "document_start",

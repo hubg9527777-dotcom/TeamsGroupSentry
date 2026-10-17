@@ -1,0 +1,3 @@
+2026-10-16 · Codex in-app browser · synthetic data only
+8/8 small binding tests passed
+No production Chrome extension end-to-end or sender-to-alert latency verification.

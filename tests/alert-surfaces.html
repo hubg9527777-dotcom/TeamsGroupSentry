@@ -1,0 +1,13 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>三处醒目提醒 · 虚构数据测试</title>
+<style>
+body{margin:0;padding:24px;background:#edf2f7;color:#24344a;font:14px system-ui}h1{font-size:22px;margin:0 0 8px}p{line-height:1.6;margin:4px 0 18px;color:#56677c}
+.preview{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}.column{display:grid;gap:18px}h2{font-size:15px;margin:0 0 9px}iframe{display:block;border:1px solid #c8d5e5;border-radius:12px;background:#f3f6fa;box-shadow:0 3px 14px #19334d12}
+#results{line-height:1.7;padding:18px;background:white;border-radius:10px;max-width:740px}.pass{color:#126a3a}.fail{color:#a21d2a}#summary{display:block;margin:18px 0}
+</style></head><body>
+<h1>弹窗与两种状态栏：同时提示同名冒充风险</h1><p>全部为虚构演示数据。三个界面均运行插件实际显示代码；这里只验证提醒展示，不代表已适配真实 Teams 请求检测。</p>
+<div class="preview">
+<section><h2>① 点击扩展后的弹窗</h2><iframe id="popup" title="扩展弹窗" src="popup-under-test.html" width="360" height="680"></iframe></section>
+<div class="column"><section><h2>② 状态栏收起：原因与人数直接可见</h2><iframe id="compact" title="收起状态栏" src="overlay-fixture.html" width="370" height="130"></iframe></section>
+<section><h2>③ 状态栏展开：核实建议与处理入口</h2><iframe id="expanded" title="展开状态栏" src="overlay-fixture.html?expanded=true" width="370" height="400"></iframe></section></div>
+</div><strong id="summary">展示测试中…</strong><ol id="results"></ol><script src="alert-surfaces.js"></script>
+</body></html>

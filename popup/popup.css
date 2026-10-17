@@ -1,4 +1,4 @@
-*{box-sizing:border-box}body{margin:0;width:360px;padding:0;color:#25354a;background:#f5f8fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;font-size:12px}header{padding:19px 19px 14px;background:white;border-bottom:1px solid #e6eaf0}.tiny{letter-spacing:1px;color:#627e9a;font-size:10px;font-weight:700}h1{font-size:18px;margin:6px 0}header p{color:#7a8a9b;margin:6px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px}.grid>.stat-link{background:white;border:1px solid #e2e8f0;border-radius:9px;padding:12px;display:block;min-width:0;text-align:left;color:#25354a;font-weight:400}.grid b{font-size:25px;display:block}.grid span{color:#73849a;font-size:11px;display:block}.grid .stat-link small{display:block;margin-top:7px;color:#1d60c3;font-size:10px;font-weight:600}.grid .stat-link:hover{border-color:#3776cf;background:#f5f9ff}.grid .stat-link:focus-visible{outline:3px solid #a3c7fb;outline-offset:2px}.hint{margin:4px 16px 10px;padding:10px;border-radius:7px;background:#fff7e6;color:#765718;line-height:1.5}.actions{display:grid;gap:8px;padding:0 16px 16px}button{border:1px solid #cdd9e6;border-radius:8px;padding:10px;background:white;color:#254064;cursor:pointer;font-weight:600}button.primary{background:#1d60c3;border-color:#1d60c3;color:white}button:disabled{opacity:.6}footer{border-top:1px solid #dde5ef;padding:11px 16px;color:#8996a6;font-size:10px;line-height:1.5}
+*{box-sizing:border-box}body{margin:0;width:360px;padding:0;color:#25354a;background:#f5f8fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;font-size:12px}header{padding:19px 19px 14px;background:white;border-bottom:1px solid #e6eaf0}.tiny{letter-spacing:1px;color:#627e9a;font-size:10px;font-weight:700}h1{font-size:18px;margin:6px 0}header p{color:#7a8a9b;margin:6px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px}.grid>.stat-link{background:white;border:1px solid #e2e8f0;border-radius:9px;padding:12px;display:block;min-width:0;text-align:left;color:#25354a;font-weight:400}.grid b{font-size:25px;display:block}.grid span{color:#73849a;font-size:11px;display:block}.grid .stat-link small{display:block;margin-top:7px;color:#1d60c3;font-size:10px;font-weight:600}.grid .stat-link:hover{border-color:#3776cf;background:#f5f9ff}.grid .stat-link:focus-visible{outline:3px solid #a3c7fb;outline-offset:2px}.summary-note{margin:0 16px 7px;color:#66788d;font-size:10px;line-height:1.4}.hint{margin:4px 16px 10px;padding:10px;border-radius:7px;background:#fff7e6;color:#765718;line-height:1.5}.actions{display:grid;gap:8px;padding:0 16px 16px}button{border:1px solid #cdd9e6;border-radius:8px;padding:10px;background:white;color:#254064;cursor:pointer;font-weight:600}button.primary{background:#1d60c3;border-color:#1d60c3;color:white}button:disabled{opacity:.6}footer{border-top:1px solid #dde5ef;padding:11px 16px;color:#8996a6;font-size:10px;line-height:1.5}
 
 .overlay-opt{padding:9px 14px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;background:#f0f5fb;border-radius:9px;margin:10px 0}.overlay-opt label{font-size:12px;font-weight:650}.overlay-opt select{padding:6px;border-radius:6px;border:1px solid #aabbd0;flex:1;min-width:110px}.overlay-opt span{width:100%;font-size:10px;color:#758498}
 
@@ -9,6 +9,13 @@
 .identity-action p{margin:6px 0 9px;color:#685c4d}
 .identity-action button{width:100%;white-space:normal}
 .feedback{margin:0 16px 10px;padding:9px;border-radius:7px;background:#eaf3ff;color:#24527e}
+
+/* INFO is a visible blue observation, never a red/yellow high-priority security signal. */
+.info-events{display:flex;align-items:center;gap:6px;margin:0 16px 10px;width:calc(100% - 32px);padding:9px 11px;
+ background:#e8f2ff;border:1px solid #9ec5f1;color:#174f91;font-weight:500;text-align:left}
+.info-events strong{font-size:13px;color:#294b71}
+.info-events span{margin-left:auto;color:#2865a4;font-size:11px}
+.info-events[hidden]{display:none!important}
 
 /* Security signal: warning only when the *current* account has unresolved items. */
 .alert-banner{margin:11px 16px 0;padding:11px 12px;background:#fff0f0;border:1px solid #df4141;border-radius:9px;color:#9a1d27;display:grid;gap:4px;line-height:1.45}
@@ -30,3 +37,81 @@ body.has-alert .tiny{color:#b5272f}
  background:#fff9e9;border:1px solid #d8a23d;border-radius:9px;color:#81571c;font-size:12px}
 .health-banner[hidden]{display:none!important}
 .health-banner strong{font-weight:700}
+
+/* Direct yellow-review action: appears only for saved current-account group records. */
+.roster-review-banner{display:grid;gap:7px;margin:10px 12px;padding:11px 12px;
+ background:#fff9e9;border:1px solid #d8a23d;border-radius:9px;color:#81571c;line-height:1.45}
+.roster-review-banner[hidden]{display:none!important}
+.roster-review-banner strong{font-size:13px}
+.roster-review-banner span{font-size:11px}
+.roster-review-banner button{width:100%;background:#fff3d2;border-color:#ca922e;color:#825012;
+ padding:9px 10px;text-align:center;font-size:12px}
+.roster-review-banner button:hover{background:#ffebba;border-color:#a97619}
+.roster-review-banner button:focus-visible{outline:3px solid #efc977;outline-offset:2px}
+
+/* Fresh-profile, explicit self-ID selection (no account token or website script scraping). */
+.self-picker{display:grid;gap:6px;margin:9px 0 11px}
+.self-picker[hidden]{display:none!important}
+.self-picker label{font-weight:600;color:#5f4d32;font-size:11px}
+.self-picker select,.self-picker input{min-width:0;width:100%;padding:8px 9px;background:white;
+ border:1px solid #d1b579;border-radius:7px;color:#24364a;font-size:12px}
+.self-picker small{color:#77654b;font-size:10px;line-height:1.45}
+
+/* The risk panel is above all counters, including request-only alerts. */
+.alert-banner.request-danger{border:2px solid #bf2634;border-left:6px solid #bf2634;background:#fff0f1;padding:12px;gap:7px}
+.alert-banner.request-danger strong{font-size:15px;line-height:1.45}
+.alert-banner.request-danger #alertDetail{font-size:12px;font-weight:650;color:#8f1d2a}
+.alert-banner .alert-advice{font-size:12px;font-weight:650;color:#8f1d2a}
+.alert-banner .contact-request-action{width:100%;margin-top:3px;background:#b42332;border:1px solid #9e1928;color:white;font-size:13px;padding:10px}
+.alert-banner .contact-request-action:hover{background:#971b29}
+.alert-banner [hidden]{display:none!important}
+.request-notice{margin:11px 16px 0;padding:12px;display:grid;gap:8px;line-height:1.5;
+ border:2px solid #c52a32;border-left-width:6px;border-radius:9px;background:#fff0f1;color:#861c29}
+.request-notice[hidden]{display:none!important}.request-notice strong{font-size:15px}
+.request-notice b{font-size:12px}.request-notice small{font-size:10px}
+.request-notice button{background:#b42332;border-color:#b42332;color:white}
+.self-suggestion{display:grid;gap:6px;padding:9px;background:#edf5ff;border:1px solid #96b8e1;border-radius:7px;line-height:1.5}
+.self-suggestion span{font-size:11px;word-break:break-word}.self-picker details summary{cursor:pointer;padding:7px 0;font-weight:600}
+.self-picker details label{display:block;margin-top:7px}
+body.has-request-notice:not(.has-alert) header{background:#fff0f1;border-bottom:2px solid #c52a32}
+
+.request-excerpts{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow-y:auto;font-weight:600}
+
+.request-item{display:grid;gap:5px;padding:12px 0;border-bottom:1px solid #59434e;overflow-wrap:anywhere}
+.request-item:first-child{padding-top:0}.request-item:last-child{border-bottom:0;padding-bottom:0}
+.request-kind{font-size:11px;color:#c9bdc6;font-weight:500;letter-spacing:.3px}
+.request-item .request-item-name{display:block;font-size:14px;color:#fff;font-weight:700;line-height:1.5}
+.request-inviter{font-size:11px;color:#d6cbd3}
+.request-item .request-message{font-size:13px;line-height:1.65;margin:2px 0 0;color:#fff;font-weight:400;white-space:pre-wrap}
+.request-item .message-author{font-size:12px;color:#f1e8ee;font-weight:600}
+.request-no-body,.request-empty{color:#e5c3a0;font-size:12px;font-weight:400;line-height:1.6;margin:0}
+
+body.has-alert header,body.has-request-notice:not(.has-alert) header{background:white;border-bottom:1px solid #e6eaf0}
+.request-notice{background:#291e27;color:#fff;border:2px solid #c52a32;border-left-width:4px;gap:12px;padding:14px}
+.request-notice>strong{color:#ff9aa3;font-size:15px}
+#requestNoticeReason{color:#c9bdc6;font-size:10px;line-height:1.5}
+#requestNoticeIdentity{display:none}
+#requestNoticeAdvice{color:#ffadb4;font-size:12px;line-height:1.7;padding-top:10px;border-top:1px solid #59434e}
+.request-notice small{color:#bdb0bb;font-size:10px}
+.request-notice button{background:#49313e;border:1px solid #8c5d70;color:#fff;padding:8px;font-weight:500}
+.request-notice button:hover{background:#614050}
+.request-excerpts{white-space:normal;max-height:none;overflow:visible;font-weight:400}
+.alert-banner.request-danger{background:#291e27;color:white}.alert-banner.request-danger strong,.alert-banner.request-danger .alert-advice{color:#ffadb4}
+
+/* Functional palette: neutral content, red request perimeter, isolated caution. */
+.request-item{border-color:#435166}.request-kind,.request-inviter,.message-coverage{color:#ccd6e3}
+.message-coverage{display:block;font-size:11px;line-height:1.6;margin-top:5px;font-weight:400}
+.request-item .request-item-name,.request-item .request-message,.request-item .message-author{color:#f8fafc}
+
+.request-notice,.alert-banner.request-danger{background:#182230;color:#f8fafc}
+.request-notice>strong,.alert-banner.request-danger strong{color:#ffb4b4}
+#requestNoticeReason{color:#ccd6e3;font-size:11px}
+#requestNoticeAdvice,.alert-banner.request-danger .alert-advice{display:block;background:#ffdf78;color:#241c08;
+ border:1px solid #ffdf78;border-left:4px solid #d49500;border-radius:7px;padding:11px 12px;font-size:13px;font-weight:700;line-height:1.8}
+#requestNoticeAdvice::before{content:'⚠ 安全提醒';display:block;margin-bottom:4px;font-size:12px;font-weight:800}
+.alert-banner.request-danger #alertDetail{color:#f8fafc}
+.request-notice button{background:#314158;border-color:#7d92ad;color:#f8fafc}
+.request-notice small{color:#ccd6e3}
+.request-notice .request-no-body,.request-notice .request-empty{color:#ffdf78}
+
+#requestNoticeAdvice{white-space:pre-line}

@@ -1,18 +1,57 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TeamsGroupSentry</title><link rel="stylesheet" href="popup.css"></head><body>
-<header><div class="tiny">TEAMSGROUPSENTRY · V1.0.0</div><h1>Teams 群组安全哨兵</h1><p>本地观察 · 人员关系网 · 人工审核</p></header>
+<header><div class="tiny">TEAMSGROUPSENTRY · V1.0.1</div><h1>Teams 群组安全哨兵</h1><p>发现群变化 · 核查人员 · 处理提醒</p></header>
 <section id="alertBanner" class="alert-banner" role="status" aria-live="polite" hidden>
- <strong id="alertTitle">⚠ 有待核查事项</strong><span id="alertDetail">请查看下方红色卡片并处理。</span>
+ <strong id="alertTitle">⚠ 有重要事项待处理</strong><span id="alertDetail">请查看下方红色卡片并处理。</span>
+ <span id="alertAdvice" class="alert-advice" hidden></span>
+ <button type="button" id="contactRequests" class="contact-request-action" aria-label="查看陌生好友请求" hidden>查看陌生好友 →</button>
 </section>
-<section id="healthBanner" class="health-banner" role="status" aria-live="polite" hidden><strong>⚠ 守护状态需要关注</strong><span id="healthDetail"></span></section>
-<section class="grid" aria-label="安全总览快速入口"><button type="button" class="stat-link" data-destination="groups" id="statGroups" aria-label="查看全部群组明细"><b id="groups">—</b><span id="groupsLabel">已索引群组</span><small>查看群组 →</small></button><button type="button" class="stat-link" data-destination="people" id="statPeople" aria-label="查看全部唯一人员明细"><b id="persons">—</b><span id="personsLabel">唯一人员</span><small>查看人员 →</small></button><button type="button" class="stat-link" data-destination="review" id="statUnknown" aria-label="查看新身份待审核名单"><b id="unknown">—</b><span id="unknownLabel">新身份待审</span><small>前往审核 →</small></button><button type="button" class="stat-link" data-destination="events" id="statEvents" aria-label="查看重要未处理事件"><b id="events">—</b><span id="eventsLabel">重要未处理</span><small>查看事件 →</small></button></section>
+<section id="requestNotice" class="request-notice" role="status" aria-live="polite" hidden>
+ <strong id="requestNoticeTitle">🔴 聊天请求 · 务必核实身份</strong>
+ <span id="requestNoticeAdvice">未知联系请求，务必核实身份。切勿共享账号信息或授权登录。</span>
+ <div id="requestNoticeDetails" class="request-excerpts"></div>
+ <span id="requestNoticeReason"></span>
+ <b id="requestNoticeIdentity">人员 ID：待核实 · 消息内容：尚未读取</b>
+ <button type="button" id="requestNoticeAck">收起本次提醒</button>
+ <small>仅收起提醒，不接受请求、不批准身份。</small>
+</section>
+<section id="healthBanner" class="health-banner" role="status" aria-live="polite" hidden><strong id="healthTitle">⚠ 需要关注</strong><span id="healthDetail"></span></section>
+<section id="rosterReviewBanner" class="roster-review-banner" aria-label="待核查群组快捷入口" hidden>
+ <strong>⚠ <span id="rosterReviewCount">0</span> 个群需要核查</strong>
+ <span>发现名单差异，请在 Teams 中核对人员是否真的变化。</span>
+ <button type="button" id="rosterReviewLink">查看待核查群 →</button>
+</section>
+<button type="button" id="infoEvents" class="info-events" hidden aria-label="查看普通待查看事件">🔵 普通变动待查看 <strong id="infoEventCount">0</strong><span>查看对应群组 →</span></button>
+<section class="grid" aria-label="安全总览快速入口"><button type="button" class="stat-link" data-destination="groups" id="statGroups" aria-label="查看全部群组明细"><b id="groups">—</b><span id="groupsLabel">已记录群组</span><small>查看群组 →</small></button><button type="button" class="stat-link" data-destination="people" id="statPeople" aria-label="查看已记录的人员"><b id="persons">—</b><span id="personsLabel">已记录人员</span><small>查看人员 →</small></button><button type="button" class="stat-link" data-destination="review" id="statUnknown" aria-label="查看新人员待审核名单"><b id="unknown">—</b><span id="unknownLabel">新人员待审核</span><small>前往审核 →</small></button><button type="button" class="stat-link" data-destination="events" id="statEvents" aria-label="查看重要事件待处理名单"><b id="events">—</b><span id="eventsLabel">重要事件待处理</span><small>查看事件 →</small></button></section>
+<p class="summary-note" id="groupCountNote">群组数包含历史记录，不等于现在仍在的群。</p>
+
 <p class="hint" id="status" role="status" aria-live="polite">正在读取扩展数据库…</p>
 <section id="identityAction" class="identity-action" hidden>
-  <strong>账号保护：需要确认绑定</strong>
+  <strong id="identityActionTitle">账号保护：需要确认绑定</strong>
   <p id="identityExplanation">只读扫描不会修改既有基线。确认是当前 Teams 账号后，可以继续建立或沿用正式群组索引。</p>
+  <div id="setupSelfPicker" class="self-picker" hidden>
+   <section id="selfSuggestionBox" class="self-suggestion" role="status" aria-live="polite">
+    <strong id="selfSuggestionTitle">尚未自动定位本人 ID</strong>
+    <span id="selfSuggestionReason">请先查找本人线索，不要从群成员中猜选。</span>
+   </section>
+   <button type="button" id="findSelfId">查找 / 刷新本人 ID</button>
+   <details id="manualSelfCandidates"><summary>手动核对候选（可选，请勿猜选）</summary>
+   <label for="setupSelfSelect">选择您本人的 Teams 成员 ID（只需一次）</label>
+   <select id="setupSelfSelect" aria-label="请选择缓存中属于您本人的成员 ID"></select>
+   <label for="setupSelfManual">或手动输入完整 ID（可选）</label>
+   <input id="setupSelfManual" type="text" maxlength="480" spellcheck="false" autocomplete="off" placeholder="例如 8:live:cid.…" aria-label="手动填写本人的 Teams 成员 ID">
+   </details>
+   <code id="setupSelfChosen" style="word-break:break-all;white-space:normal"></code>
+   <div id="smallSetupFields" hidden>
+    <p>少量群不能仅凭群名单识别本人。姓名仅供参考，请核对完整 ID，勿选择其他群成员。</p>
+    <label for="setupSelfSuffix">核对后填写本人 ID 的最后 6 位</label>
+    <input id="setupSelfSuffix" type="text" maxlength="6" autocomplete="off" spellcheck="false" aria-label="本人 ID 最后 6 位">
+   </div>
+   <small>请选择姓名、ID 与本人一致的候选。未确认前不会写入成员基线。无需提供密码或 Token。</small>
+  </div>
   <button id="bindCurrent" class="primary">确认当前账号并建立 / 沿用基线</button>
 </section>
 <p id="scanFeedback" class="feedback" role="status" aria-live="polite" hidden></p>
-<div class="actions"><button id="scan" class="primary">立即巡检</button><button id="dashboard">打开人员安全中心</button><button id="nameCurrent">识别当前 Teams 群并命名</button><button id="upgradeSafety">数据升级保护与备份</button></div>
-<section class="overlay-opt"><label for="overlayMode">Teams 网页右上角状态栏</label><select id="overlayMode"><option value="always">始终显示</option><option value="alerts">仅有异常时显示</option><option value="hidden">完全隐藏</option></select><span id="overlayNote">修改后会同步到 Teams 网页</span></section>
-<footer>不持久保存原始鉴权凭据；缓存新增 ID 不等于服务端确认入群。</footer>
-<script src="popup.js"></script></body></html>
+<div class="actions"><button id="scan" class="primary">立即巡检</button><button id="dashboard">打开安全中心 · 处理更多</button><button id="upgradeSafety">备份与设置</button></div>
+<section class="overlay-opt"><label for="overlayMode">网页提醒显示方式</label><select id="overlayMode"><option value="always">始终显示</option><option value="alerts">有待办或变动时显示</option><option value="hidden">完全隐藏</option></select><span id="overlayNote">修改后会同步到 Teams 网页</span></section>
+<footer>请求以当前 Teams 界面为准；正文仅展示已取得内容，可能不完整。</footer>
+<script src="../lib/request-view.js"></script><script src="popup.js"></script></body></html>

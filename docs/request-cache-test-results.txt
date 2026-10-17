@@ -1,0 +1,3 @@
+2026-10-16 · Codex in-app browser · synthetic data only
+12/12 native cache tests passed: cache-only no live notice; exact current-row association; targeted lookup not displaced by stale records; original safeguards
+No production Chrome installation end-to-end verification.
