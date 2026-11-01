@@ -1,0 +1,51 @@
+name: Publish TeamsGroupSentry v1.0.2 Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check version and run tests
+        run: |
+          test "$(node -p "require('./package.json').version")" = "1.0.2"
+          test "$(node -p "require('./manifest.json').version")" = "1.0.2"
+          npm test
+      - name: Build release packages
+        run: python3 tests/build-packages.py dist
+      - name: Verify SHA-256 checksums
+        run: cd dist && sha256sum -c SHA256SUMS.txt
+      - name: Publish v1.0.2 to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view v1.0.2 >/dev/null 2>&1; then
+            echo '::error::Release v1.0.2 already exists; refusing to overwrite existing files.'
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin refs/tags/v1.0.2 >/dev/null 2>&1; then
+            echo '::error::Tag v1.0.2 already exists; verify tag commit before publishing.'
+            exit 1
+          fi
+          gh release create v1.0.2 \
+            dist/TeamsGroupSentry-1.0.2-install.zip \
+            dist/TeamsGroupSentry-1.0.2-source.zip \
+            dist/SHA256SUMS.txt \
+            --title 'TeamsGroupSentry v1.0.2' \
+            --notes-file .github/RELEASE_NOTES.md \
+            --target "$GITHUB_SHA" \
+            --latest
