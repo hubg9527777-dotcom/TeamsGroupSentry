@@ -41,12 +41,28 @@ onmessage=async event=>{try{let result;
    await D.putMeta({pk:'active',account:testA,verified:true,at:Date.now(),scanTabId:1});
    await D.putMeta({pk:'account:'+testA,account:testA,manualBound:true,verified:true});
    await saveGuard({mode:'WRITE',account:testA,at:Date.now(),scanTabId:1});
-   await D.transaction(['people','groups','edges'],'readwrite',async tx=>{
+   await D.transaction(['people','groups','edges','events'],'readwrite',async tx=>{
      const person={pk:D.pk(testA,'8:live:original_demo'),id:'8:live:original_demo',account:testA,name:'张三',status:'APPROVED',reviewedAt:Date.now()};
      await D.request(tx.objectStore('people').put(person));
      const group={pk:D.pk(testA,'19:demo@thread.v2'),account:testA,id:'19:demo@thread.v2',title:'演示项目群',memberIds:[person.id,'8:live:self'],level:'STANDARD'};
      await D.request(tx.objectStore('groups').put(group));
      await D.request(tx.objectStore('edges').put({pk:D.pk(testA,D.pk(group.id,person.id)),account:testA,groupId:group.id,personId:person.id}));
+     const change1={id:'demo-history-1',account:testA,groupId:group.id,type:'ROSTER_CHANGE_OBSERVED',
+       at:Date.now()-3600000,addedIds:['8:live:demo_a'],removedIds:['8:live:demo_b'],severity:'SILENT',status:'LOGGED'};
+     const change2={id:'demo-history-2',account:testA,groupId:group.id,type:'ROSTER_CHANGE_OBSERVED',
+       at:Date.now()-86400000*9,addedIds:['8:live:demo_c'],removedIds:[],severity:'SILENT',status:'LOGGED'};
+     for(const h of [change1,change2])await D.request(tx.objectStore('events').put({...h,pk:D.pk(testA,h.id)}));
+     for(const [id,name] of [['8:live:demo_a','周小敏'],['8:live:demo_b','陈文华'],['8:live:demo_c','林雨轩']])
+       await D.request(tx.objectStore('people').put({pk:D.pk(testA,id),id,account:testA,name,status:'APPROVED'}));
+     // Synthetic, locally seeded roster differences for visual layout testing.
+     for(let i=1;i<=5;i++){
+       const gid=`19:synthetic_review_${i}@thread.v2`, newcomer=`8:live:demo_new_${i}`;
+       await D.request(tx.objectStore('people').put({pk:D.pk(testA,newcomer),id:newcomer,account:testA,name:`示例新人${i}`,status:'NEW'}));
+       await D.request(tx.objectStore('groups').put({pk:D.pk(testA,gid),account:testA,id:gid,
+         title:`测试群组 ${i} · 示例`,memberIds:[person.id,'8:live:self'],level:i===1?'CRITICAL':'STANDARD',
+         ambiguous:true,ambiguousReason:'名单出现减少或替换',pendingRosterIds:['8:live:self',newcomer],
+         pendingRevision:`synthetic${i}`,pendingSnapshotAt:Date.now(),lastObservedAt:Date.now()}));
+     }
    });
    const request=structuredClone(testPayload);request.requestUI.observations[0].personId='8:live:stranger_demo';
    await ingestContactRequests(request,testA);result={ok:true};break;

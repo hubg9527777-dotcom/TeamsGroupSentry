@@ -77,6 +77,30 @@
   });
   // Register before sending the initial bootstrap message.
   hello();
+  // Capture names when Teams finishes rendering the member dialog, without
+  // waiting for the next expensive IndexedDB scan. No roster/approval changes.
+  let lastKnownNames=new Set(),visibleNameTimer=null,lastVisibleDigest='',lastVisibleCheck=0;
+  function scheduleVisibleNames(){
+    if(!lastKnownNames.size||visibleNameTimer||Date.now()-lastVisibleCheck<1500||
+       !globalThis.TGSMemberNameUI?.hasPanel(document))return;
+    visibleNameTimer=setTimeout(async()=>{
+      visibleNameTimer=null;lastVisibleCheck=Date.now();
+      let hints=[];
+      try{hints=globalThis.TGSMemberNameUI.inspect(document,lastKnownNames)||[];}catch{return;}
+      if(!hints.length)return;
+      const digest=hints.map(h=>h.id+'\u001f'+h.name).sort().join('\u001e');
+      if(digest===lastVisibleDigest)return;
+      try{const result=await chrome.runtime.sendMessage({action:'SUPPLEMENT_VISIBLE_NAMES',
+        hints:hints.slice(0,300),at:Date.now()});
+        if(result?.ok)lastVisibleDigest=digest;
+      }catch{} // Teams functionality must never be interrupted by the extension.
+    },750);
+  }
+  const visibleObserver=new MutationObserver(scheduleVisibleNames);
+  if(document.documentElement)visibleObserver.observe(document.documentElement,{childList:true,subtree:true});
+  else document.addEventListener('DOMContentLoaded',()=>{
+    visibleObserver.observe(document.documentElement,{childList:true,subtree:true});
+  },{once:true});
   async function scan(force=false,reason='PERIODIC'){
     if(pollBusy)return pollBusy;
     if(!force && Date.now()-lastScan<17000)return {ok:true,throttled:true};
@@ -102,8 +126,19 @@
         else consecutiveReaderFailures=0;
         let requestUI;
         try{requestUI=globalThis.TGSRequestUI?.inspect(document);}catch{}
+        // Optional display-only labels from an open Teams members dialog.
+        // These never create a member, change a roster or approve any identity.
+        const known=new Set(data.rows.flatMap(row=>(row.members||[]).map(m=>m.id)));
+        lastKnownNames=known;lastVisibleDigest='';
+        let uiNames=[];
+        try{uiNames=globalThis.TGSMemberNameUI?.inspect(document,known)||[];}catch{}
+        // Do not discard an exact ID+name pair just because weaker cached
+        // metadata already contains a (possibly outdated) label. The worker
+        // selects by source priority and rejects equal-priority conflicts.
+        const nameHints=[...uiNames.slice(0,300),...(data.nameHints||[]).slice(0,15700)];
         return await chrome.runtime.sendMessage({action:'INGEST',payload:{
-          ...data, requestUI, stats:{...data.stats,cacheWatchActive:bridgeReady}, at:Date.now(), trigger:reason, trustedReader:'ISOLATED'}});
+          ...data,nameHints,requestUI, stats:{...data.stats,uiNamesFound:uiNames.length,cacheWatchActive:bridgeReady},
+          at:Date.now(), trigger:reason, trustedReader:'ISOLATED'}});
       }catch(e){return {ok:false,error:'无法提交巡检结果：'+String(e?.message||e).slice(0,100)};}
     })().finally(()=>{pollBusy=null;});
     return pollBusy;
@@ -336,6 +371,18 @@
       return {...assisted,originalCode:resolved.code};
     }
     return resolved;
+  }
+  // Observe the actual user-confirmed Teams leave-chat UI. No page-supplied
+  // message or cached roster may write membership status by itself.
+  if(globalThis.TGSMembershipUI?.start){
+    globalThis.TGSMembershipUI.start(document,detail=>{
+      chrome.runtime.sendMessage({action:'AUTO_GROUP_MEMBERSHIP',...detail})
+        .catch(()=>{}); // An unavailable background must never affect Teams.
+    },{onUnresolved:code=>{
+      // Diagnostic only: cannot change a group or invent a chat ID.
+      chrome.runtime.sendMessage({action:'GROUP_MEMBERSHIP_DIAGNOSTIC',code,observedAt:Date.now()})
+        .catch(()=>{});
+    }});
   }
   let chatNavigationBusy=false;
   chrome.runtime.onMessage.addListener((msg,_sender,sendResponse)=>{

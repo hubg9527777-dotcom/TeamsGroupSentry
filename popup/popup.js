@@ -65,9 +65,16 @@ async function summary(){
     // Active may point to ANOTHER account. Never display its cached counts as current-user facts.
     const sameAccount=!!m.active?.account && !!guard?.account && m.active.account===guard.account;
     const safeIndexed=typeof status.indexed==='boolean'?status.indexed:(!readOnly||sameAccount);
-    text('groups',typeof status.groups==='number'?safeCount(status.groups):(readOnly?safeCount(guard.inspected):safeCount(n.groups)));
-    text('groupsLabel',readOnly?'本次读取群（只读）':'已记录群组（含历史）');
-    text('groupCountNote',readOnly?'此处是本次缓存读到的群，账号未确认前不更新历史名单。':'已记录群组包含历史记录，不等于当前仍加入的群。');
+    text('groups',typeof status.groups==='number'?safeCount(status.groups):(readOnly?safeCount(guard.inspected):safeCount(n.trackedGroups)));
+    text('groupsLabel',readOnly?'本次读取群（只读）':'未标记退群');
+    text('groupCountNote',readOnly?'此处是本次缓存读到的群，账号未确认前不更新历史名单。':`历史共 ${safeCount(n.groups)} 群 · 已记录退出 ${safeCount(n.leftGroups)} 群（操作自动识别 ${safeCount(n.autoLeftGroups)} 群）。非服务器实时验证。`);
+    const recent=m.membershipAutomation;
+    by('membershipAutoNote').hidden=!recent;
+    if(recent)text('membershipAutoNote',recent.status==='AUTO_LEFT'?'最近退群：已自动扣除 1 群，可在群详情撤销。':
+      recent.status==='ALREADY_LEFT'?'最近退群：此前已记录退出，未重复扣数。':
+      recent.status==='NOT_INDEXED'?'最近退群：该群未进入历史索引，无法从历史数字中再扣除。':
+      recent.status==='NO_EXACT_GROUP_ID'?'退群检测未完成：'+recent.reason:
+      '最近退群：自动扣数未完成（'+(recent.reason||'需检查账号绑定、Teams 巡检和页面')+'）。');
     text('persons',safeIndexed?safeCount(n.people):'—');
     text('unknown',safeIndexed?safeCount(n.newUnknown):'—');
     text('events',safeIndexed?safeCount(n.openUrgent):'—');
@@ -148,7 +155,7 @@ async function summary(){
           `此 Chrome 用户资料尚无旧人员基线，已读取 ${current} 群。请确认当前登录的是需要监控的 Teams 账号；确认一次后建立初始名单，以后浏览器重启无需重复确认。`:
           `请先确认你正在使用正确的 Teams 账号。只读观察 ${current} 群；确认绑定后再巡检，才会写入当前账号的正式索引。不会把旧账号的数据自动迁入其他账号。`);
     }else if(m.active?.at){
-      text('status',`最近巡检：${new Date(m.active.at).toLocaleString()} · 已记录 ${safeCount(n.groups)} 群（含历史）`);
+      text('status',`最近巡检：${new Date(m.active.at).toLocaleString()} · 未标记退群 ${safeCount(n.trackedGroups)} 群 · 历史 ${safeCount(n.groups)} 群`);
     }else text('status','还没有群组记录。请打开 Teams，再点击「立即巡检」。');
   }catch(e){if(revision!==summaryRevision)return;updateAlertAppearance(0,0,false);by('infoEvents').hidden=true;by('rosterReviewBanner').hidden=true;by('healthBanner').hidden=false;
     document.body.classList.add('has-warning');text('healthDetail','状态暂时无法读取，不能视为正常。');

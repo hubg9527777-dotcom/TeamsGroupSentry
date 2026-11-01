@@ -1,3 +1,5 @@
-2026-10-16 · Codex in-app browser · synthetic data only
-32/32 native database/DOM tests passed
-No production Chrome installation end-to-end verification.
+2026-10-24 · Chromium browser-side verification, SYNTHETIC DOM ONLY
+Two accessible Teams-style member-list variants with exact ID/name pair: PASS.
+Member row containing two different IDs: rejected correctly, PASS.
+Full dashboard preview via localhost: BLOCKED_BY_ADMINISTRATOR in execution environment; not counted as passed.
+Real Microsoft Teams logged-in session: NOT TESTED; actual UI structure may vary.

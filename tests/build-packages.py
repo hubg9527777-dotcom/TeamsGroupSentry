@@ -13,11 +13,11 @@ for folder, suffixes in [('lib', {'.js'}), ('icons', {'.png'}), ('overlay', {'.j
 install = runtime + [root / 'README.md', root / 'CHANGELOG.md', root / 'SECURITY.md']
 source = install + [root / 'TESTING.md', root / 'package.json', root / '.gitignore']
 source += [f for f in (root / 'tests').iterdir() if f.is_file() and f.suffix in {'.js', '.cjs', '.py', '.html'}]
-source += [root / 'docs' / f for f in ['node-test-results.txt', 'browser-test-results.txt', 'display-test-results.txt', 'small-binding-test-results.txt', 'self-lookup-test-results.txt', 'request-cache-test-results.txt', '交付报告.md', '安全审核报告-2026-10-16.md']]
+source += [root / 'docs' / f for f in ['node-test-results.txt', 'browser-test-results.txt', 'display-test-results.txt', 'small-binding-test-results.txt', 'self-lookup-test-results.txt', 'request-cache-test-results.txt', '交付报告.md', '安全审核报告-2026-10-16.md', '安全审核报告-2026-11-01.md', '近期人员变化功能说明.md', '群组界面信息层级优化.md', '安全审核报告-2026-11-01-UI版.md', '安全复核报告-2026-11-01.md']]
 manifest = json.loads((root / 'manifest.json').read_text())
-assert manifest['version'] == '1.0.1'
+assert manifest['version'] == '1.0.2'
 checksums = []
-for name, files in [('TeamsGroupSentry-1.0.1-install.zip', install), ('TeamsGroupSentry-1.0.1-source.zip', source)]:
+for name, files in [('TeamsGroupSentry-1.0.2-install.zip', install), ('TeamsGroupSentry-1.0.2-source.zip', source)]:
     target = out / name
     with ZipFile(target, 'w', ZIP_DEFLATED, compresslevel=9) as archive:
         for f in sorted(set(files)):

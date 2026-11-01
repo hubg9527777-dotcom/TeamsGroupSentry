@@ -1,4 +1,4 @@
-/* TeamsGroupSentry public release v1.0.1 — local only. No token values stored/replayed, no member removal.
+/* TeamsGroupSentry public release v1.0.2 — local only. No token values stored/replayed, no member removal.
    No MAIN-world identity or member payload is trusted. Missing account hints require explicit local scope approval. */
 importScripts('lib/logic.js','lib/db.js','lib/recovery.js','lib/backup-diff.js','lib/contact-risk.js','lib/request-notice.js','lib/self-evidence.js');
 const L=globalThis.TGSLogic,D=globalThis.TGSDB,R=globalThis.TGSRecovery,B=globalThis.TGSBackupDiff;
@@ -6,8 +6,8 @@ const ALARM='sentry-v3-poll';
 const SCAN_HEALTH_KEY='tgs-v3-scan-health';
 const SCAN_STALE_MS=180000; // Chrome may delay MV3 alarms while backgrounded.
 let pendingTabScan=null;
-const BUILD_VERSION='1.0.1', UPGRADE_KEY='upgrade-safety';
-const FEATURE_BUILD='live-ui-evidence-history-2026-10-16', C=globalThis.TGSContactRisk;
+const BUILD_VERSION='1.0.2', UPGRADE_KEY='upgrade-safety';
+const FEATURE_BUILD='group-history-2026-11-01-r9', C=globalThis.TGSContactRisk;
 const N=globalThis.TGSRequestNotice,NOTICE_KEY='tgs-request-ui-tab:';
 const SELF=globalThis.TGSSelfEvidence;
 // A separate per-tab queue never waits for a group scan or writes identity data.
@@ -96,6 +96,7 @@ async function requirePrepared(){
 
 const GUARD_STATE_KEY='tgs-v33-guard-state',GUARD_SEEN_KEY='tgs-v33-guard-seen';
 // Only short-lived ID candidates from a successful WRITE scan; never a token or credential.
+const MEMBERSHIP_UI_STATUS_KEY='tgs-membership-ui-status-v1';
 const SELF_ID_OFFER_KEY='tgs-self-id-offer-v1', SELF_ID_OFFER_TTL=120000;
 const OVERLAY_MODES=new Set(['always','alerts','hidden']);
 const DEFAULT_OVERLAY={mode:'always',offset:'top'};
@@ -105,7 +106,7 @@ const bound=(s,n)=>typeof s==='string'?s.slice(0,n):'';
 // Keep an explicitly resolved name from being overwritten by a weaker cache hint.
 const NAME_SOURCE_PRIORITY=Object.freeze({
   'Teams 用户资料缓存':90,'Teams 联系人缓存':70,
-  members:60,avatarUsersInfo:55,'Teams 会话元数据':40,cache:20,unresolved:0
+  'Teams 当前可见成员名单':65,members:60,avatarUsersInfo:55,'Teams 会话元数据':40,cache:20,unresolved:0
 });
 function sourcePriority(source){return NAME_SOURCE_PRIORITY[source]||0;}
 function mayUpdateName(person,name,source){
@@ -532,7 +533,7 @@ function messageWithin(tabId,ms){
 // Extension reload invalidates already-injected content scripts in still-open Teams tabs.
 // Reattach packaged, extension-owned scripts only to the already permitted Teams origin.
 // Never navigate/reload the Teams page or touch its ongoing messages.
-const TEAMS_CONTENT_FILES=['lib/logic.js','lib/name-core.js','lib/contact-risk.js','lib/request-ui.js','lib/self-evidence.js','lib/isolated-reader.js','lib/request-cache.js','content.js','lib/request-view.js','overlay/overlay.js'];
+const TEAMS_CONTENT_FILES=['lib/logic.js','lib/name-core.js','lib/contact-risk.js','lib/request-ui.js','lib/self-evidence.js','lib/isolated-reader.js','lib/member-name-ui.js','lib/request-cache.js','lib/membership-ui.js','content.js','lib/request-view.js','overlay/overlay.js'];
 const TEAMS_MAIN_FILES=['lib/cache-watch.js','page-reader.js'];
 function isReaderConnectionError(message=''){
   return /Receiving end does not exist|Could not establish connection|Extension context invalidated|context invalidated|读取器未初始化|message port closed|message channel closed|listener indicated|连接已失效/i.test(String(message));
@@ -651,11 +652,30 @@ async function applyBatch(rows,account,policy,initialBaseline,repairLegacyEdges=
         ids.push(m.id);memberInfos.set(m.id,{name:L.goodName(m.name,m.id),source:bound(m.nameSource,30)});}
       if(invalid)continue;
       const gpk=D.pk(account,row.id),old=await D.request(groups.get(gpk));
+      // Leaving does not delete history. Teams may keep an exited chat in cache;
+      // that stale copy must not resurrect member alerts or the active roster.
+      if(old?.membershipStatus==='LEFT')continue;
       const diff=L.classifyChange(old?.memberIds,ids);
       const qualityDowngrade=old?.quality==='CACHE_CONSISTENT'&&row.quality==='CACHE_OBSERVED';
       const countRulesChanged=old && old.countOffset!==row.countOffset;
       const uncertain=old && (qualityDowngrade||countRulesChanged||diff.kind.startsWith('AMBIGUOUS'));
       const wasAmbiguous=old?.ambiguous===true;
+      // Keep an independent, reviewable history even when notifications are disabled.
+      // It records when the cache changed, not when Teams actually added/removed anyone.
+      // Do not repeat the same candidate difference on every periodic scan.
+      if(old&&(diff.added.length||diff.missing.length)){
+        const previousCandidate=Array.isArray(old.pendingRosterIds)?old.pendingRosterIds:null;
+        const priorSet=previousCandidate?new Set(previousCandidate):null;
+        const sameCandidate=previousCandidate&&priorSet.size===ids.length&&
+          ids.every(id=>priorSet.has(id));
+        if(!sameCandidate){
+          addEvent(tx,account,{type:'ROSTER_CHANGE_OBSERVED',groupId:row.id,personId:null,
+            quality:row.quality,severity:'SILENT',oldRosterCount:old.memberIds?.length||0,
+            candidateRosterCount:ids.length,addedIds:diff.added.slice(0,100),
+            removedIds:diff.missing.slice(0,100),diffTruncated:diff.added.length>100||diff.missing.length>100,
+            message:'Teams 本地缓存名单变化，日期是插件发现时间；不代表实际进出群时间'});
+        }
+      }
       const group=old||{pk:gpk,account,id:row.id,alias:'',title:'',longTitle:'',titleNameHints:[],level:'STANDARD',
         memberIds:[],firstSeen:Date.now(),stability:0,ambiguous:false};
       if(L.goodName(row.title,row.id))group.title=bound(row.title,180);
@@ -854,6 +874,45 @@ async function reviewContactRequest(msg){
   });
 }
 
+// Display-only name improvements from an explicitly visible Teams member row.
+// This action NEVER creates a person, joins a group, changes trust or resolves
+// a review. The matching stored ID must already belong to the active account.
+async function supplementVisibleNames(msg,sender){
+  const active=await D.getMeta('active'),guard=await sessionGuard();
+  const tabId=sender?.tab?.id;
+  if(!Number.isInteger(tabId)||guard?.mode!=='WRITE'||
+     !active?.verified||!active.account||active.account!==guard.account||
+     tabId!==active.scanTabId||tabId!==guard.scanTabId||
+     !Number.isFinite(active.at)||Date.now()-active.at>180000||
+     !Number.isFinite(guard.at)||Date.now()-guard.at>180000)
+    return {ok:false,error:'当前 Teams 账号或名单已过期，请先执行一次检查'};
+  if(!Number.isFinite(msg?.at)||Math.abs(Date.now()-msg.at)>30000||
+     !Array.isArray(msg.hints)||msg.hints.length>300)
+    return {ok:false,error:'当前成员姓名数据不完整'};
+  const names=new Map();
+  for(const hint of msg.hints){
+    const id=hint?.id,name=L.goodName(hint?.name,id);
+    if(!L.personId(id)||!name||name.length>120||
+       (names.has(id)&&names.get(id)!==name))
+      return {ok:false,error:'同一成员的姓名记录有冲突，未保存'};
+    names.set(id,name);
+  }
+  if(!names.size)return {ok:true,changed:0};
+  const policy=await D.getPolicy(active.account);
+  const changed=await D.transaction(['people'],'readwrite',async tx=>{
+    let count=0;const store=tx.objectStore('people');
+    for(const [id,name] of names){
+      const person=await D.request(store.get(D.pk(active.account,id)));
+      if(!person||!mayUpdateName(person,name,'Teams 当前可见成员名单'))continue;
+      if(person.name&&person.name!==name)person.aliases=[...new Set([...(person.aliases||[]),person.name])].slice(-10);
+      person.name=name;person.nameSource='Teams 当前可见成员名单';
+      person.companyCandidate=L.isCompanyCandidate(person.manualName||person.name,policy);
+      await D.request(store.put(person));count++;
+    }
+    return count;
+  });
+  return {ok:true,changed};
+}
 async function ingest(p,scanTabId){
   if(!validate(p))return {ok:false,error:'本地扫描内容无效或数据库尚未建立'};
   const identity=await resolveIdentity(p);
@@ -875,8 +934,14 @@ async function ingest(p,scanTabId){
   try{contactResult=await ingestContactRequests(p,account);}catch{contactResult={ok:false,limited:true};}
   const hints=new Map();
   if(Array.isArray(p.nameHints)&&p.nameHints.length<=16000){
-    for(const h of p.nameHints){if(L.personId(h?.id)&&L.goodName(h?.name,h.id))
-      hints.set(h.id,{name:L.goodName(h.name,h.id),source:bound(h.source,36)||'Teams 元数据'});}
+    for(const h of p.nameHints){
+      if(!L.personId(h?.id)||!L.goodName(h?.name,h.id))continue;
+      const source=bound(h.source,36)||'Teams 元数据',priority=sourcePriority(source);
+      if(!priority)continue;
+      const old=hints.get(h.id), name=L.goodName(h.name,h.id);
+      if(!old||priority>old.priority)hints.set(h.id,{name,source,priority,conflict:false});
+      else if(priority===old.priority&&old.name!==name)hints.set(h.id,{...old,conflict:true});
+    }
   }
   const initialBaseline=(await D.getAllFor('groups',account)).length===0;
   // Older releases could create edges from an unverified candidate roster.
@@ -886,7 +951,10 @@ async function ingest(p,scanTabId){
   const edgeRepairKey='edge-reconcile-v1:'+account;
   const repairLegacyEdges=(await D.getMeta(edgeRepairKey))?.done!==true;
   const rows=p.rows.map(row=>({...row,members:Array.isArray(row.members)?row.members.map(m=>{
-    const hint=hints.get(m.id);return (hint&&hint.source==='Teams 用户资料缓存')?{...m,name:hint.name,nameSource:hint.source}:((!L.goodName(m.name,m.id)&&hint)?{...m,name:hint.name,nameSource:hint.source}:m);
+    const hint=hints.get(m.id);
+    return hint&&!hint.conflict&&(!L.goodName(m.name,m.id)||
+      hint.priority>sourcePriority(m.nameSource||'members'))?
+      {...m,name:hint.name,nameSource:hint.source}:m;
   }):[]}));let changes={groupsChanged:0,observedAdded:0,unknown:0,critical:0,notifyCount:0,infoNotices:0,ambiguous:0,bootstrapped:0};
   // Small bounded transactions keep service workers responsive with large Teams accounts.
   for(let i=0;i<rows.length;i+=35){const done=await applyBatch(rows.slice(i,i+35),account,policy,initialBaseline,repairLegacyEdges);
@@ -909,7 +977,7 @@ async function ingest(p,scanTabId){
     nameHints:p.stats.nameHints||0,nameDatabasesFound:p.stats.nameDatabasesFound||0,
     nameRecordsChecked:p.stats.nameRecordsChecked||0,nameConflicts:p.stats.nameConflicts||0,
     nameStoresCapped:p.stats.nameStoresCapped||0,unresolved:p.stats.unresolved||0,
-    nameFieldPaths:p.stats.nameFieldPaths||{},cacheWatchActive:p.stats.cacheWatchActive===true,
+    nameFieldPaths:p.stats.nameFieldPaths||{},uiNamesFound:p.stats.uiNamesFound||0,cacheWatchActive:p.stats.cacheWatchActive===true,
     scanTrigger:['CACHE_WRITE','PERIODIC','REQUESTED'].includes(p.trigger)?p.trigger:'UNKNOWN'},changes};
   await D.putMeta(active);
   const existingMeta=await D.getMeta('account:'+account);
@@ -946,7 +1014,7 @@ async function pruneOldEvents(account){
   const day=24*60*60*1000,meta=await D.getMeta('pruned:'+account);
   if(meta?.at && Date.now()-meta.at<day)return;
   const cutoff=Date.now()-180*day, all=await D.getAllFor('events',account);
-  const olds=all.filter(e=>e.at<cutoff && e.status!=='OPEN' && !['CONTACT_REQUEST','CONTACT_REQUEST_REVIEWED','IDENTITY_REVIEWED'].includes(e.type)).slice(0,1500);
+  const olds=all.filter(e=>e.at<cutoff && e.status!=='OPEN' && !['CONTACT_REQUEST','CONTACT_REQUEST_REVIEWED','IDENTITY_REVIEWED','GROUP_MEMBERSHIP_DECLARED','GROUP_MEMBERSHIP_UI_OBSERVED','ROSTER_ALERT_CLOSED_AFTER_LEAVE'].includes(e.type)).slice(0,1500);
   for(let i=0;i<olds.length;i+=150){await D.transaction(['events'],'readwrite',async tx=>{
     for(const e of olds.slice(i,i+150))await D.request(tx.objectStore('events').delete(e.pk));
   });}
@@ -956,7 +1024,13 @@ async function counts(account){
   const [groups,people,events,edges]=await Promise.all(['groups','people','events','edges'].map(s=>D.getAllFor(s,account)));
   const requests=C.summary(events);
   const unresolved=events.filter(e=>e.type!=='CONTACT_REQUEST'&&e.status==='OPEN'&&e.severity!=='SILENT');
-  return {requests,groups:groups.length,people:people.length,edges:edges.length,criticalGroups:groups.filter(g=>g.level==='CRITICAL').length,
+  // A saved group is permanent history, not proof of current membership.
+  // Only an explicit, account-scoped user confirmation excludes it from the
+  // 'not marked left' total. Never infer leaving from a cached roster alone.
+  const leftGroups=groups.filter(g=>g.membershipStatus==='LEFT').length;
+  const autoLeftGroups=groups.filter(g=>g.membershipStatus==='LEFT'&&g.membershipMethod==='TEAMS_UI_OBSERVED').length;
+  return {requests,groups:groups.length,trackedGroups:groups.length-leftGroups,leftGroups,autoLeftGroups,
+    people:people.length,edges:edges.length,criticalGroups:groups.filter(g=>g.level==='CRITICAL').length,
     newUnknown:people.filter(p=>p.status==='NEW').length,legacyUnknown:people.filter(p=>p.status==='LEGACY').length,
     openUrgent:unresolved.filter(e=>['CRITICAL','HIGH','REVIEW'].includes(e.severity)).length,
     // INFO is an unread observation, not an actionable security alarm.
@@ -989,7 +1063,7 @@ async function statusSnapshot(){
   const level=newUnknown||openUrgent||n?.requests?.pending?'alert':readOnly?'readonly':
     !lastRead?'uninitialized':Date.now()-lastRead>SCAN_STALE_MS?'stale':ambiguous?'review':openInfo?'info':'ok';
   return {level,indexed,guard:guard||null,active:active||null,counts:n,
-    groups:readOnly?(guard.inspected||0):(n?.groups||0),
+    groups:readOnly?(guard.inspected||0):(n?.trackedGroups||0),
     newUnknown,openUrgent,openInfo,ambiguous,lastRead,
     // Explicitly separate uncertain, ephemeral READ_ONLY observations from
     // saved unresolved records so the UI never fabricates processed events.
@@ -1153,64 +1227,291 @@ async function edit(msg){
   }
   throw new Error('未知编辑操作');
 }
-// Adopt a reviewed CACHE observation for exactly one group; this is NOT
-// proof of server-side joining/leaving and never approves unknown people.
-async function confirmRosterReview(msg){
-  await assertFreshScanForSensitiveEdit();
-  const guard=await sessionGuard(),active=await D.getMeta('active');
-  if(guard?.mode!=='WRITE'||!active?.account||guard.account!==active.account)
-    throw new Error('请先巡检并确认账号身份，才能采用当前名单');
-  if(!L.threadId(msg.id)||typeof msg.revision!=='string'||msg.revision.length>80)
-    throw new Error('群组核查参数无效');
-  const account=active.account;
-  const result=await D.transaction(['groups','events','edges'],'readwrite',async tx=>{
-    const groups=tx.objectStore('groups'),events=tx.objectStore('events'),edges=tx.objectStore('edges');
-    const row=await D.request(groups.get(D.pk(account,msg.id)));
-    if(!row||!row.ambiguous||!Array.isArray(row.pendingRosterIds)||!row.pendingRosterIds.length)
-      throw new Error('没有可确认的最新名单，请先进行巡检');
-    if(row.pendingRevision!==msg.revision)throw new Error('缓存名单已经更新，请重新查看差异后确认');
-    if(!Number.isFinite(row.pendingSnapshotAt)||Date.now()-row.pendingSnapshotAt>180000||
-      row.pendingSnapshotAt>Date.now()+30000)throw new Error('观察名单已过期，请先点击立即巡检');
-    const next=row.pendingRosterIds;
-    if(next.length>L.MAX_MEMBERS||new Set(next).size!==next.length||!next.every(L.personId))
-      throw new Error('观察名单存在不合法或重复的成员 ID');
-    const old=Array.isArray(row.memberIds)?row.memberIds:[];
-    const previous=new Set(old),updated=new Set(next);
-    const removed=old.filter(id=>!updated.has(id)),added=next.filter(id=>!previous.has(id));
-    // Persist all changes and an undo/audit trail atomically. Do not delete
-    // people or their global approvals. Reconcile ALL active group edges,
-    // including unverified candidate edges left by older plugin versions.
-    const storedEdges=await D.request(edges.index('byGroup').getAll([account,row.id]));
-    for(const edge of storedEdges){
-      if(!updated.has(edge.personId))await D.request(edges.delete(edge.pk));
+// Once the user has left a group, they cannot reliably inspect its current
+// roster. Close only that group's yellow roster work item, while preserving
+// previous members, pending candidate and differences in an immutable audit.
+// Never adopt candidate members, change trusted identities, or delete history.
+async function archiveExitedRosterAlert(tx,group,account,at,reason,cachedEvents){
+  const events=tx.objectStore('events');
+  const all=cachedEvents||await D.request(events.index('account').getAll(account));
+  const open=all.filter(e=>e.groupId===group.id&&e.type==='ROSTER_UNCERTAIN'&&e.status==='OPEN');
+  if(!group.ambiguous&&!open.length)return false;
+  const previous=[...(group.memberIds||[])],candidate=Array.isArray(group.pendingRosterIds)?[...group.pendingRosterIds]:null;
+  const before=new Set(previous),after=new Set(candidate||[]);
+  const audit={pk:'',id:crypto.randomUUID(),account,groupId:group.id,
+    type:'ROSTER_ALERT_CLOSED_AFTER_LEAVE',status:'LOGGED',severity:'SILENT',at,
+    reason,previousMemberIds:previous,candidateMemberIds:candidate,
+    addedIds:candidate?candidate.filter(id=>!before.has(id)):[],
+    removedIds:candidate?previous.filter(id=>!after.has(id)):[],
+    previousReason:group.ambiguousReason||'',
+    message:'本人已退出：结束该群黄色人员变化提醒，仅保存原记录，不把缓存名单认定为最新真实成员'};
+  audit.pk=D.pk(account,audit.id);await D.request(events.put(audit));
+  for(const event of open){event.status='ACKNOWLEDGED';event.reviewedAt=at;
+    event.reviewedByEventId=audit.id;event.closedReason='SELF_LEFT';await D.request(events.put(event));}
+  group.ambiguous=false;group.observedCandidateIds=[];group.ambiguousNotifiedAt=0;
+  for(const key of ['ambiguousReason','pendingRosterIds','pendingRevision','pendingQuality',
+    'pendingCountOffset','pendingSnapshotAt'])delete group[key];
+  group.lastRosterAlertClosedAt=at;group.lastRosterAlertClosedEventId=audit.id;
+  return true;
+}
+// This is a reversible USER-DECLARED membership flag only. It never deletes
+// a historical group, adopts a roster, changes trust, or suppresses alerts.
+// The cache may retain old conversations, so it cannot reverse this flag.
+// A Teams click is only a locally observed *probable* leave: a separate
+// modal confirmation was clicked and the dialog subsequently disappeared
+// without a visible error. This is NOT server-side membership verification.
+// Restrict this state transition to the exact account + recently scanned tab;
+// never take IDs or membership from page-world postMessage or cache hints.
+// A missing precise group ID is a failed observation, not a leave event.
+// Only short-lived, account/tab scoped feedback is published; no group data is written.
+async function membershipDiagnostic(msg,sender){
+  if(sender?.id!==chrome.runtime.id||sender?.frameId!==0||
+     !sender?.url?.startsWith('https://teams.live.com/')||
+     msg.code!=='NO_EXACT_GROUP_ID'||!Number.isFinite(msg.observedAt)||
+     Math.abs(Date.now()-msg.observedAt)>15000||!Number.isInteger(sender?.tab?.id))
+    return {ok:false};
+  const [active,guard]=await Promise.all([D.getMeta('active'),sessionGuard()]);
+  if(!active?.account||guard?.mode!=='WRITE'||guard.account!==active.account||
+     guard.scanTabId!==sender.tab.id||active.scanTabId!==sender.tab.id)
+    return {ok:false};
+  try{await chrome.storage.session.set({[MEMBERSHIP_UI_STATUS_KEY]:{
+    status:'NO_EXACT_GROUP_ID',reason:'Teams 菜单未提供唯一的群组 ID；未扣群数。请先打开目标群聊，再重试退出。',
+    account:active.account,at:Date.now()}});}catch{}
+  return {ok:true};
+}
+async function autoGroupMembership(msg,sender){
+  const tabId=sender?.tab?.id;
+  const publish=async(status,reason='',account='')=>{
+    try{await chrome.storage.session.set({[MEMBERSHIP_UI_STATUS_KEY]:{status,reason,account,at:Date.now()}});}catch{}
+  };
+  try{
+    if(sender?.id!==chrome.runtime.id||sender?.frameId!==0||
+       !Number.isInteger(tabId)||!sender?.url?.startsWith('https://teams.live.com/')||
+       !L.threadId(msg.chatId)||msg.kind!=='LEFT'||
+       msg.evidence!=='DIALOG_DISMISSED_AFTER_CONFIRM'||
+       !Number.isFinite(msg.observedAt)||Math.abs(Date.now()-msg.observedAt)>15000)
+      throw Error('自动识别事件不符合安全条件');
+    const account=await assertFreshScanForSensitiveEdit();
+    const active=await D.getMeta('active'),guard=await sessionGuard();
+    if(active.scanTabId!==tabId||guard.scanTabId!==tabId)
+      throw Error('退群页面与最近已验证巡检页面不一致');
+    const result=await D.transaction(['groups','events'],'readwrite',async tx=>{
+      const groups=tx.objectStore('groups'),events=tx.objectStore('events');
+      const group=await D.request(groups.get(D.pk(account,msg.chatId)));
+      if(!group)return {ok:true,changed:false,status:'NOT_INDEXED'};
+      if(group.membershipStatus==='LEFT')return {ok:true,changed:false,status:'ALREADY_LEFT'};
+      const at=Date.now(),eventId=crypto.randomUUID();
+      group.membershipStatus='LEFT';group.membershipMethod='TEAMS_UI_OBSERVED';
+      group.membershipReviewedAt=at;group.membershipReviewEventId=eventId;
+      await archiveExitedRosterAlert(tx,group,account,at,'TEAMS_UI_OBSERVED');
+      await D.request(groups.put(group));
+      await D.request(events.put({pk:D.pk(account,eventId),id:eventId,account,
+        groupId:group.id,type:'GROUP_MEMBERSHIP_UI_OBSERVED',previousStatus:'UNMARKED',
+        nextStatus:'LEFT',severity:'SILENT',status:'LOGGED',at,
+        message:'Teams 本地界面观察：用户点退群、确认窗口关闭且未见错误；未经服务器验证，可撤销'}));
+      return {ok:true,changed:true,status:'AUTO_LEFT'};
+    });
+    await publish(result.status,result.status==='NOT_INDEXED'?'该聊天未进入历史群组索引，未增加或扣除历史数':'',account);
+    if(result.changed){await refreshBadge();await broadcastOverlay();}
+    return result;
+  }catch(e){
+    const reason=bound(e?.message||String(e),150);
+    let safeAccount='';
+    try{const [active,guard]=await Promise.all([D.getMeta('active'),sessionGuard()]);
+      if(guard?.mode==='WRITE'&&guard.account===active?.account&&guard.scanTabId===tabId)
+        safeAccount=active.account;
+    }catch{}
+    if(safeAccount)await publish('BLOCKED',reason,safeAccount);
+    return {ok:false,error:reason};
+  }
+}
+async function setGroupMembership(msg){
+  const account=await assertIdentitySafeToEdit();
+  if(!L.threadId(msg.id)||!['LEFT','UNMARKED'].includes(msg.value)||
+     !['LEFT','UNMARKED'].includes(msg.expectedStatus)||msg.confirmed!==true)
+    throw new Error('群组退群确认参数无效');
+  const result=await D.transaction(['groups','events'],'readwrite',async tx=>{
+    const groups=tx.objectStore('groups'),events=tx.objectStore('events');
+    const key=D.pk(account,msg.id),group=await D.request(groups.get(key));
+    if(!group)throw new Error('群不存在，请刷新群组列表');
+    const previous=group.membershipStatus==='LEFT'?'LEFT':'UNMARKED';
+    if(previous!==msg.expectedStatus)throw new Error('本群退群状态已改变，请刷新后重新核对');
+    // An older build may have stored LEFT while keeping an obsolete yellow
+    // roster alert. A repeated, explicitly confirmed LEFT is a repair, not a
+    // no-op; do not require a fresh roster or alter the historical baseline.
+    if(previous===msg.value){
+      if(previous!=='LEFT')return {ok:true,changed:false,alertsClosed:0};
+      const closed=await archiveExitedRosterAlert(tx,group,account,Date.now(),'ALREADY_LEFT_REPAIR');
+      if(closed)await D.request(groups.put(group));
+      return {ok:true,changed:false,alertsClosed:closed?1:0};
     }
-    for(const id of next){const key=D.pk(account,D.pk(row.id,id));
-      const edge=await D.request(edges.get(key));
-      if(!edge)await D.request(edges.put({pk:key,account,groupId:row.id,personId:id,
-        firstSeen:Date.now(),lastSeen:Date.now(),seen:'MANUALLY_REVIEWED'}));}
-    const audit={id:crypto.randomUUID(),account,type:'ROSTER_BASELINE_REVIEWED',
-      groupId:row.id,personId:null,quality:row.pendingQuality||'CACHE_OBSERVED',
-      severity:'SILENT',status:'LOGGED',at:Date.now(),
-      previousMemberIds:[...old],acceptedMemberIds:[...next],addedIds:added,removedIds:removed,
-      message:'用户核实 Teams 群成员后采用本地缓存名单；不等于已确认成员进出时间'};
-    audit.pk=D.pk(account,audit.id);await D.request(events.put(audit));
-    row.memberIds=[...next];row.quality=row.pendingQuality||'CACHE_OBSERVED';
-    row.countOffset=row.pendingCountOffset;
-    row.ambiguous=false;row.stability=1;row.lastCacheChangeAt=Date.now();
-    row.baselineReviewedAt=Date.now();row.baselineReviewEventId=audit.id;
-    row.observedCandidateIds=[];row.ambiguousNotifiedAt=0;
-    for(const key of ['ambiguousReason','pendingRosterIds','pendingRevision','pendingQuality',
-      'pendingCountOffset','pendingSnapshotAt'])delete row[key];
-    await D.request(groups.put(row));
-    // Acknowledging roster uncertainty must not approve any NEW identities.
-    const open=await D.request(events.index('account').getAll(account));
-    for(const event of open){if(event.groupId===row.id&&event.type==='ROSTER_UNCERTAIN'&&event.status==='OPEN'){
-      event.status='ACKNOWLEDGED';event.reviewedAt=Date.now();event.reviewedByEventId=audit.id;
-      await D.request(events.put(event));}}
-    return {ok:true,added:added.length,removed:removed.length,groupId:row.id,eventId:audit.id};
+    const now=Date.now(),eventId=crypto.randomUUID();
+    group.membershipStatus=msg.value;
+    group.membershipMethod='MANUAL';
+    group.membershipReviewedAt=now;
+    group.membershipReviewEventId=eventId;
+    if(msg.value==='LEFT')await archiveExitedRosterAlert(tx,group,account,now,'MANUAL');
+    await D.request(groups.put(group));
+    await D.request(events.put({pk:D.pk(account,eventId),id:eventId,account,
+      groupId:group.id,type:'GROUP_MEMBERSHIP_DECLARED',previousStatus:previous,
+      nextStatus:msg.value,severity:'SILENT',status:'LOGGED',at:now,
+      message:msg.value==='LEFT'?'用户手动声明本人已退出此群；非 Teams 服务器验证':
+        '用户手动撤销已退群标记；非 Teams 服务器验证'}));
+    return {ok:true,changed:true,previousStatus:previous,nextStatus:msg.value};
   });
   await refreshBadge();await broadcastOverlay();return result;
 }
+// Explicit batch changes to LOCAL group preferences / declared membership.
+// Transactional, account-scoped and all-or-nothing. Never auto-adopt cached
+// rosters, approve people or silently acknowledge security incidents.
+async function bulkGroupEdits(msg){
+  const account=await assertIdentitySafeToEdit();
+  const ids=msg.ids;
+  if(!Array.isArray(ids)||ids.length<1||ids.length>500||
+    !ids.every(L.threadId)||new Set(ids).size!==ids.length)
+    throw new Error('请选择 1–500 个不同的有效群组');
+  const levels=['CRITICAL','STANDARD','QUIET'];
+  const isLevel=msg.kind==='level'&&levels.includes(msg.value);
+  const isMembership=msg.kind==='membership'&&['LEFT','UNMARKED'].includes(msg.value);
+  if(!isLevel&&!isMembership)throw new Error('批量操作类型或参数不正确');
+  if(isMembership&&msg.confirmed!==true)throw new Error('请先逐一在 Teams 核实所选群的真实退群状态');
+  const result=await D.transaction(['groups', 'events'],'readwrite',async tx=>{
+    const store=tx.objectStore('groups'),events=tx.objectStore('events'),rows=[];
+    for(const id of ids){
+      const g=await D.request(store.get(D.pk(account,id)));
+      if(!g||g.account!==account)throw new Error('有群已不存在或属于另一账号，请刷新列表');
+      rows.push(g);
+    }
+    let changed=0,alertsClosed=0;
+    const cachedEvents=isMembership&&msg.value==='LEFT'?await D.request(events.index('account').getAll(account)):null;
+    for(const group of rows){
+      const previous=isLevel?(levels.includes(group.level)?group.level:'STANDARD'):
+        group.membershipStatus==='LEFT'?'LEFT':'UNMARKED';
+      if(previous===msg.value){
+        // LEFT from a previous build can coexist with an old OPEN alert.
+        // Repair that alert even when the membership flag needs no change.
+        if(isMembership&&msg.value==='LEFT'){
+          const closed=await archiveExitedRosterAlert(tx,group,account,Date.now(),'BULK_ALREADY_LEFT_REPAIR',cachedEvents);
+          if(closed){alertsClosed++;await D.request(store.put(group));}
+        }
+        continue;
+      }
+      if(isLevel)group.level=msg.value;
+      else{
+        const at=Date.now(),id=crypto.randomUUID();
+        group.membershipStatus=msg.value;group.membershipMethod='MANUAL';
+        group.membershipReviewedAt=at;group.membershipReviewEventId=id;
+        if(msg.value==='LEFT'&&await archiveExitedRosterAlert(tx,group,account,at,'BULK_MANUAL',cachedEvents))alertsClosed++;
+        await D.request(events.put({pk:D.pk(account,id),id,account,
+          groupId:group.id,type:'GROUP_MEMBERSHIP_DECLARED',previousStatus:previous,
+          nextStatus:msg.value,severity:'SILENT',status:'LOGGED',at,
+          message:msg.value==='LEFT'?'批量人工声明本人已退出此群；非 Teams 服务器验证':
+            '批量人工撤销退群标记；非 Teams 服务器验证'}));
+      }
+      await D.request(store.put(group));changed++;
+    }
+    return {ok:true,changed,unchanged:rows.length-changed,alertsClosed};
+  });
+  await refreshBadge();await broadcastOverlay();return result;
+}
+// Adopt a reviewed CACHE observation for exactly one group; this is NOT
+// proof of server-side joining/leaving and never approves unknown people.
+// Approve one or several individually checked Teams rosters in one atomic,
+// account-scoped transaction. These are observed CACHE rosters, not proof of
+// actual joins/leaves. Never change a person's trust status or leave marker.
+async function confirmRosterReviews(msg){
+  const account=await assertIdentitySafeToEdit();
+  const guard=await sessionGuard(),active=await D.getMeta('active');
+  if(guard?.mode==='READ_ONLY'||!active?.account||guard?.account!==active.account)
+    throw new Error('请先确认当前 Teams 登录账号，再处理名单');
+  const bulk=msg.action==='BULK_CONFIRM_ROSTER';
+  if(bulk&&msg.confirmed!==true)throw new Error('请在确认窗口确认后再提交');
+  const targets=bulk?msg.items:[{id:msg.id,revision:msg.revision}];
+  if(!Array.isArray(targets)||targets.length<1||targets.length>(bulk?100:1)||
+     !targets.every(item=>item&&L.threadId(item.id)&&typeof item.revision==='string'&&
+       item.revision.length<=80)||
+     new Set(targets.map(item=>item.id)).size!==targets.length)
+    throw new Error('请选择有效的群（一次最多确认 100 个），请刷新页面后重试');
+  // A departed group needs only a local notification dismissal; current
+  // membership in Teams cannot be checked after departure. Live groups still
+  // require a fresh scan before any member baseline can be replaced.
+  const selected=await D.getAllFor('groups',account);
+  const chosen=targets.map(target=>selected.find(g=>g.id===target.id));
+  if(chosen.some(g=>!g||!g.ambiguous))throw new Error('有群已处理或不存在，请刷新页面再确认');
+  if(chosen.some(g=>g.membershipStatus!=='LEFT'))await assertFreshScanForSensitiveEdit();
+  const result=await D.transaction(['groups','events','edges'],'readwrite',async tx=>{
+    const groups=tx.objectStore('groups'),events=tx.objectStore('events'),edges=tx.objectStore('edges');
+    const now=Date.now(),rows=[];
+    // Validate EVERY row and revision before changing anything. If one changed
+    // since display, abort all changes; do not silently adopt a stale roster.
+    for(const target of targets){
+      const row=await D.request(groups.get(D.pk(account,target.id)));
+      if(!row||row.account!==account||!row.ambiguous)
+        throw new Error('所选群中有群已处理或不存在，请刷新页面后重试');
+      if(row.membershipStatus==='LEFT'){rows.push({row,archiveOnly:true});continue;}
+      if(!Array.isArray(row.pendingRosterIds)||!row.pendingRosterIds.length)
+        throw new Error('有群没有新名单，请先重新读取');
+      if(row.pendingRevision!==target.revision)throw new Error('有群的人员名单刚发生变化，请重新查看后确认，未保存任何群');
+      if(!Number.isFinite(row.pendingSnapshotAt)||now-row.pendingSnapshotAt>180000||row.pendingSnapshotAt>now+30000)
+        throw new Error('有群的人员名单已超过 3 分钟，请先点击「重新读取群名单」');
+      const next=row.pendingRosterIds;
+      if(next.length>L.MAX_MEMBERS||new Set(next).size!==next.length||!next.every(L.personId))
+        throw new Error('有群的人员 ID 不完整或重复，无法确认');
+      rows.push({row,next:[...next]});
+    }
+    let addedTotal=0,removedTotal=0,archived=0;
+    const changed=[];
+    // Fetch once per batch so large selections do not enumerate every event
+    // for every group. Group membership edges are always account-scoped.
+    const eventsForAccount=await D.request(events.index('account').getAll(account));
+    for(const {row,next,archiveOnly} of rows){
+      if(archiveOnly){
+        await archiveExitedRosterAlert(tx,row,account,now,'CONFIRMED_AFTER_LEAVE');
+        await D.request(groups.put(row));archived++;
+        changed.push({groupId:row.id,archived:true,added:0,removed:0});continue;
+      }
+      const old=Array.isArray(row.memberIds)?row.memberIds:[];
+      const prev=new Set(old),updated=new Set(next);
+      const removed=old.filter(id=>!updated.has(id)),added=next.filter(id=>!prev.has(id));
+      const storedEdges=await D.request(edges.index('byGroup').getAll([account,row.id]));
+      for(const edge of storedEdges)if(!updated.has(edge.personId))await D.request(edges.delete(edge.pk));
+      for(const id of next){
+        const key=D.pk(account,D.pk(row.id,id));
+        const edge=await D.request(edges.get(key));
+        if(!edge)await D.request(edges.put({pk:key,account,groupId:row.id,personId:id,
+          firstSeen:now,lastSeen:now,seen:'MANUALLY_REVIEWED'}));
+      }
+      const audit={id:crypto.randomUUID(),account,type:'ROSTER_BASELINE_REVIEWED',
+        groupId:row.id,personId:null,quality:row.pendingQuality||'CACHE_OBSERVED',
+        severity:'SILENT',status:'LOGGED',at:now,previousMemberIds:[...old],
+        acceptedMemberIds:[...next],addedIds:added,removedIds:removed,
+        message:bulk?'已在 Teams 核对后，批量确认这份缓存成员名单；不代表准确进退群时间':
+          '用户核实 Teams 群成员后采用本地缓存名单；不等于已确认成员进出时间'};
+      audit.pk=D.pk(account,audit.id);await D.request(events.put(audit));
+      row.memberIds=next;row.quality=row.pendingQuality||'CACHE_OBSERVED';
+      row.countOffset=row.pendingCountOffset;
+      row.ambiguous=false;row.stability=1;row.lastCacheChangeAt=now;
+      row.baselineReviewedAt=now;row.baselineReviewEventId=audit.id;
+      row.observedCandidateIds=[];row.ambiguousNotifiedAt=0;
+      for(const key of ['ambiguousReason','pendingRosterIds','pendingRevision','pendingQuality',
+        'pendingCountOffset','pendingSnapshotAt'])delete row[key];
+      await D.request(groups.put(row));
+      for(const event of eventsForAccount){
+        if(event.groupId===row.id&&event.type==='ROSTER_UNCERTAIN'&&event.status==='OPEN'){
+          event.status='ACKNOWLEDGED';event.reviewedAt=now;event.reviewedByEventId=audit.id;
+          await D.request(events.put(event));
+        }
+      }
+      addedTotal+=added.length;removedTotal+=removed.length;
+      changed.push({groupId:row.id,added:added.length,removed:removed.length,eventId:audit.id});
+    }
+    return {ok:true,changed:changed.length,archived,added:addedTotal,removed:removedTotal,
+      ...(bulk?{groups:changed}:{groupId:changed[0].groupId,eventId:changed[0].eventId})};
+  });
+  await refreshBadge();await broadcastOverlay();return result;
+}
+async function confirmRosterReview(msg){return confirmRosterReviews(msg);}
+
 async function bulkPeople(ids,value){
   await assertFreshScanForSensitiveEdit();
   const meta=await D.getMeta('active');if(!meta?.account)throw new Error('请先建立群组索引');
@@ -1333,13 +1634,17 @@ chrome.runtime.onMessage.addListener((msg,sender,reply)=>{
   // Keep Teams content scripts in the small, read-only action allowlist below.
   const own=sameExtension&&origin===new URL(chrome.runtime.getURL('/')).origin&&
     (sender.frameId===undefined||sender.frameId===0);
-  const fromPageAllowed=new Set(['INGEST','OVERLAY_STATUS','OVERLAY_PREFS_SET','OPEN_DASHBOARD','REQUEST_UI_NOTICE','ACK_REQUEST_UI_NOTICE','REQUEST_SELF_CONTEXT']);
+  const fromPageAllowed=new Set(['INGEST','OVERLAY_STATUS','OVERLAY_PREFS_SET','OPEN_DASHBOARD','REQUEST_UI_NOTICE','ACK_REQUEST_UI_NOTICE','REQUEST_SELF_CONTEXT','AUTO_GROUP_MEMBERSHIP','GROUP_MEMBERSHIP_DIAGNOSTIC','SUPPLEMENT_VISIBLE_NAMES']);
   if(!own && !(page&&fromPageAllowed.has(msg.action)))return;
   if(msg.action==='INGEST'&&!page)return;
   if(msg.action==='REQUEST_UI_NOTICE'&&!page)return;
+  if(['AUTO_GROUP_MEMBERSHIP','GROUP_MEMBERSHIP_DIAGNOSTIC'].includes(msg.action)&&!page)return;
   (async()=>{
     switch(msg.action){
       case 'INGEST':return serial(()=>ingest(msg.payload,sender.tab?.id));
+      case 'SUPPLEMENT_VISIBLE_NAMES':return serial(()=>supplementVisibleNames(msg,sender));
+      case 'AUTO_GROUP_MEMBERSHIP':return serial(async()=>{await requirePrepared();return autoGroupMembership(msg,sender);});
+      case 'GROUP_MEMBERSHIP_DIAGNOSTIC':return membershipDiagnostic(msg,sender);
       case 'REQUEST_UI_NOTICE':return ingestRequestNotice(msg,sender);
       case 'REQUEST_SELF_CONTEXT':{
         if(!page||!/^[a-f0-9]{64}$/.test(msg.scopeDigest||''))return {ok:true,selfId:''};
@@ -1632,17 +1937,24 @@ chrome.runtime.onMessage.addListener((msg,sender,reply)=>{
         const path='ui/dashboard.html?page='+target+(filter?'&filter='+filter:'');
         await chrome.tabs.create({url:chrome.runtime.getURL(path)});return {ok:true};
       }
-      case 'SUMMARY':{const [state,requestNotice]=await Promise.all([statusSnapshot(),currentRequestNotice(sender)]);const requestCoverage=state.indexed?await D.getMeta('request-coverage:'+state.active.account):null;return {ok:true,requestNotice,status:{level:state.level,indexed:state.indexed,
+      case 'SUMMARY':{const [state,requestNotice]=await Promise.all([statusSnapshot(),currentRequestNotice(sender)]);
+        const recentMembership=(await chrome.storage.session.get(MEMBERSHIP_UI_STATUS_KEY))[MEMBERSHIP_UI_STATUS_KEY];
+        const membershipAutomation=recentMembership&&Date.now()-recentMembership.at<3600000&&
+          (recentMembership.account&&recentMembership.account===state.active?.account&&state.guard?.account===recentMembership.account)?
+          {status:recentMembership.status,reason:recentMembership.reason,at:recentMembership.at}:null;const requestCoverage=state.indexed?await D.getMeta('request-coverage:'+state.active.account):null;return {ok:true,requestNotice,membershipAutomation,status:{level:state.level,indexed:state.indexed,
         requests:state.counts?.requests||{pending:0,impersonation:0,contact:0,headline:''},
         requestCoverage:'LIMITED_UI',groups:state.groups,newUnknown:state.newUnknown,openUrgent:state.openUrgent,
         openInfo:state.openInfo,ambiguous:state.ambiguous,lastRead:state.lastRead,observedOnly:state.observedOnly,
         scanHealth:{failedConsecutive:state.scanHealth.failedConsecutive||0,
           lastError:state.scanHealth.lastError||'',lastErrorAt:state.scanHealth.lastErrorAt||0,
           at:state.scanHealth.at||0}},
-        requestCoverage,guard:state.guard,active:state.active,counts:state.counts,
+        requestCoverage,guard:state.guard,active:state.active,counts:state.counts,featureBuild:FEATURE_BUILD,
         policy:state.indexed?await D.getPolicy(state.active.account):null};}
       case 'REVIEW_CONTACT_REQUEST':return serial(async()=>{await requirePrepared();const r=await reviewContactRequest(msg);await refreshBadge();await broadcastOverlay();return r;});
       case 'CONFIRM_ROSTER':return serial(async()=>{await requirePrepared();return confirmRosterReview(msg);});
+      case 'BULK_CONFIRM_ROSTER':return serial(async()=>{await requirePrepared();return confirmRosterReviews(msg);});
+      case 'SET_GROUP_MEMBERSHIP':return serial(async()=>{await requirePrepared();return setGroupMembership(msg);});
+      case 'BULK_GROUP':return serial(async()=>{await requirePrepared();return bulkGroupEdits(msg);});
       case 'EDIT':return serial(async()=>{await requirePrepared();const r=await edit(msg);await refreshBadge();await broadcastOverlay();return r;});
       case 'ACK_ROUTINE_EVENTS':return serial(async()=>{await requirePrepared();
         const r=await acknowledgeRoutineEvents(msg.ids);await refreshBadge();await broadcastOverlay();return r;});

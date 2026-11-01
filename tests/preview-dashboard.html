@@ -2,7 +2,7 @@
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TeamsGroupSentry · 人员安全中心</title><link rel="stylesheet" href="../ui/dashboard.css"></head>
 <body>
 <div style="background:#1e3a5f;color:white;padding:8px 26px">仅演示：以下姓名和 ID 全部为虚构测试数据</div>
-<header class="topbar"><div class="brand"><img src="../icons/icon48.png" alt=""><div><div class="micro">TEAMSGROUPSENTRY · LOCAL ONLY · V1.0.1</div><h1>Teams 人员安全中心</h1></div></div><div class="head-actions"><span id="syncState" class="subtle">正在加载本地数据…</span><button id="scan" class="btn primary">立即巡检</button><button id="openTeams" class="btn">打开 Teams</button></div></header>
+<header class="topbar"><div class="brand"><img src="../icons/icon48.png" alt=""><div><div class="micro">TEAMSGROUPSENTRY · LOCAL ONLY · V1.0.2</div><h1>Teams 人员安全中心</h1></div></div><div class="head-actions"><span id="syncState" class="subtle">正在加载本地数据…</span><button id="scan" class="btn primary">立即巡检</button><button id="openTeams" class="btn">打开 Teams</button></div></header>
 <div class="warning" id="systemWarning" role="status"></div>
 <div class="layout">
 <nav class="sidebar" aria-label="主导航">
@@ -20,5 +20,5 @@
 </div>
 <aside id="detail" class="detail hidden" aria-label="详细信息"><div class="detailhead"><h2 id="detailTitle">详情</h2><button id="closeDetail" class="btn iconbtn" aria-label="关闭">×</button></div><div id="detailBody" class="detailbody"></div></aside>
 <div id="toast" class="toast hidden" role="status"></div>
-<script src="../lib/logic.js"></script><script src="../lib/name-core.js"></script><script src="../lib/contact-risk.js"></script><script src="../lib/db.js"></script><script src="../lib/backup-envelope.js"></script><script src="preview-seed.js"></script>
+<script src="../lib/logic.js"></script><script src="../lib/name-core.js"></script><script src="../lib/contact-risk.js"></script><script src="../lib/db.js"></script><script src="../lib/backup-envelope.js"></script><script src="../lib/group-review.js"></script><script src="../lib/group-history.js"></script><script src="preview-seed.js"></script>
 </body></html>

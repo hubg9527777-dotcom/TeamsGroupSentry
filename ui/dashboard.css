@@ -58,3 +58,140 @@ button.stat:focus-visible{outline:3px solid #9ac4f8;outline-offset:2px}
 .archive-label-field p{margin-top:3px}
 
 .request-card{margin-top:12px}.request-danger{background:#fff2f2!important;border:2px solid #c52a32!important;color:#991b1b!important}.request-identity{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}.request-card .btn{margin:10px 8px 0 0}.detailbody strong{overflow-wrap:anywhere}
+
+/* Group-work queue: readable at high information density, without forced
+   drill-down, horizontal clipping, or hide-the-ID ellipses. */
+.group-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin:-3px 0 14px}
+.group-shortcuts .filter-quick.active{background:#e4efff;border-color:#6b9ade;color:#164f9e;font-weight:700}
+.group-safety{margin:8px 0 14px;font-size:12px;padding:10px 14px}
+.group-bulk{padding:13px 16px;margin-bottom:12px;position:sticky;top:72px;z-index:2;box-shadow:0 5px 13px #17365c11}
+.group-bulk-heading{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;font-size:13px}
+.group-bulk-actions{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0 8px}
+.group-bulk .subtle{line-height:1.6}
+.group-item{align-items:flex-start;gap:12px;padding:15px 16px}
+.group-item.selected{border-color:#3976cd;background:#fbfdff}
+.group-checkbox{width:18px;height:18px;flex:0 0 18px;margin-top:5px;cursor:pointer;accent-color:#1d5fc2}
+.group-info{min-width:0;flex:1 1 360px}
+.group-titleline{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.group-title{white-space:normal;text-overflow:clip;overflow-wrap:anywhere;line-height:1.45}
+.group-meta{font-size:12px;color:#61748a;margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
+.group-change-box{margin-top:10px;border:1px solid #dbe6f4;border-radius:9px;background:#f8fafc;padding:10px 12px;display:grid;gap:9px;min-width:0}
+.group-change-head{font-size:12px;color:#425c7b;font-weight:650;line-height:1.5}
+.group-change-section{min-width:0;border-left:3px solid #cad8e8;padding-left:9px}
+.group-change-section.added{border-left-color:#c44b4b;background:#fff9f8}
+.group-change-section.missing{border-left-color:#d59a2a;background:#fffbf1}
+.group-change-section-title{font-size:12px;font-weight:750;margin-bottom:5px;color:#344b66}
+.group-person{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding:3px 0 4px;font-size:12px;line-height:1.45;min-width:0}
+.group-person strong{font-size:12px;font-weight:650;color:#203f64;overflow-wrap:anywhere}
+.group-person-id{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:#47586d;background:#ecf1f6;border-radius:4px;padding:2px 4px;white-space:normal;overflow-wrap:anywhere;user-select:text}
+.group-person .badge{font-size:10px;padding:2px 5px}
+.group-more{margin-top:6px;padding:5px 0;border-top:1px solid #dce5ee}
+.group-more summary{cursor:pointer;font-size:12px;color:#2368b6;font-weight:600}
+.group-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto;flex-wrap:wrap;margin-top:2px}
+@media(max-width:1080px){.group-item{flex-wrap:wrap}.group-info{flex-basis:calc(100% - 40px)}.group-row-actions{margin-left:30px}.group-bulk{top:64px}}
+@media(max-width:620px){.group-bulk{position:static}.group-row-actions{justify-content:flex-start;margin-left:30px}.group-item{padding:12px}.group-change-box{padding:9px}.group-meta{font-size:11px}}
+
+/* Plain-language, single-screen group roster confirmation. */
+.batch-roster-card{border:1px solid #d9e3ef;border-radius:10px;padding:10px 12px;margin:11px 0;background:#f9fbfe;max-width:100%;overflow-wrap:anywhere}
+.batch-roster-card>summary{cursor:pointer;color:#1d3b61;font-weight:750;line-height:1.5}
+.batch-roster-card[open]{background:#fff}
+.batch-roster-card .group-person{margin:4px 0 7px}
+.batch-roster-section{display:block;margin-top:12px;font-size:12px;color:#73501a}
+.batch-roster-all{padding:8px;border:1px solid #e5edf5;border-radius:7px;margin:12px 0;background:#f6f9fd;max-height:320px;overflow:auto}
+.batch-roster-all summary,.batch-roster-wait summary{cursor:pointer;color:#2461a5;font-size:12px;font-weight:700}
+.batch-roster-wait{margin:11px 0;padding:10px;background:#fff8e8;border-radius:8px}
+.batch-roster-wait-item{overflow-wrap:anywhere;font-size:12px;margin-top:8px}
+.batch-roster-agree{background:#eaf3ff;border:1px solid #bcd5f6;border-radius:9px;padding:12px;display:flex;gap:10px;margin:16px 0 8px;line-height:1.65;align-items:flex-start}
+.batch-roster-agree input{width:18px;height:18px;flex:0 0 18px;margin-top:3px}
+
+/* Departed-chat escape path: visible without opening the group drawer. */
+.group-nextstep{margin-top:9px;padding:8px 10px;border-radius:7px;background:#fff7e9;color:#705219;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Per-group, chronological member-change history (observed cache, not actual join timestamp). */
+.group-history-summary{margin-top:8px;font-size:12px;font-weight:700;color:#245e94;overflow-wrap:anywhere}
+.group-history-panel{display:flex;flex-direction:column;gap:10px;background:#fbfdff;border-color:#cbdcec}
+.group-history-panel h3{margin:0;color:#223e60}
+.group-history-panel .subtle{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.group-history-filters{display:flex;align-items:center;gap:8px}
+.group-history-filters select{max-width:220px;width:100%}
+.group-history-list{display:flex;flex-direction:column;gap:9px}
+.group-history-counts{font-weight:700;font-size:12px;color:#31577e}
+.group-history-entry{padding:10px 12px;background:#fff;border:1px solid #dce7f4;border-radius:9px;display:grid;gap:8px;min-width:0}
+.group-history-when{font-size:12px;font-weight:700;color:#254b77;overflow-wrap:anywhere}
+.group-history-members{padding:7px 9px;border-radius:7px;border-left:3px solid #4f98a4;min-width:0}
+.group-history-members.added{background:#eef9f5;border-color:#1e9876}
+.group-history-members.missing{background:#fff7ee;border-color:#c18d2b}
+.group-history-kind{font-weight:700;font-size:12px;margin-bottom:5px}
+.group-history-person{padding:5px 0;display:flex;flex-direction:column;gap:3px;min-width:0}
+.group-history-person strong{font-size:13px;overflow-wrap:anywhere}
+.group-history-person code{align-self:flex-start;max-width:100%}
+.group-history-empty{font-size:12px;color:#667c92;padding:12px;border:1px dashed #cbd8e7;border-radius:8px}
+
+.group-history-reviewed{font-size:12px;color:#167957;font-weight:600}
+
+.group-title-link{background:none;border:0;color:#203e62;font-size:15px;font-weight:700;line-height:1.45;text-align:left;cursor:pointer;padding:0;overflow-wrap:anywhere;max-width:100%}
+.group-title-link:hover{text-decoration:underline;color:#155da5}
+.group-title-link:focus-visible{outline:2px solid #3679ce;outline-offset:2px;border-radius:3px}
+.group-history-firstseen{font-size:12px;color:#60748b}
+
+
+/* Search-first group directory. Existing batch/review tools are preserved but
+   never dominate normal group lookups. */
+.group-finder{background:#fff;border:1px solid #d7e3f0;border-radius:13px;padding:18px 19px;margin-bottom:14px}
+.group-search-label{display:block;color:#1c3450;font-weight:750;font-size:15px;margin-bottom:9px}
+.group-finder-bar{margin-bottom:5px;align-items:center}
+.group-name-search{min-width:220px;flex:1 1 420px;height:45px;font-size:15px}
+.group-finder-filter{min-width:165px;max-width:240px;height:42px}
+.group-finder-help{font-size:12px;color:#607992;line-height:1.6}
+.group-directory-controls{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:9px;margin:8px 0 12px}
+.group-directory-count{color:#506b86;font-size:12px}
+.group-extra-filters{font-size:12px;color:#55708b;margin:0 0 12px}
+.group-extra-filters summary{cursor:pointer;display:inline-block;font-weight:600}
+.group-extra-filters p{margin:8px 0;line-height:1.6}
+.group-results-heading{font-size:13px;font-weight:650;color:#435e7b;margin:8px 0 12px}
+.group-change-box{display:block}
+.group-change-toggle{cursor:pointer;color:#315777;font-size:12px;font-weight:650}
+.group-change-box .group-change-head{margin:9px 0}
+.group-change-box .group-change-section{margin-top:8px}
+.group-row-actions .btn.primary{white-space:normal}
+@media(max-width:620px){.group-finder{padding:12px}.group-finder-bar .group-finder-filter{max-width:none;width:100%}.group-directory-controls{align-items:flex-start}}
+
+/* Scan-first 60-day roster cards: names + observation dates above the fold. */
+.group-item{display:flex;align-items:flex-start;gap:16px;padding:17px 19px}
+.group-info{flex:1 1 400px;min-width:0}
+.group-titleline{gap:8px;margin-bottom:10px}
+.group-title-link{font-size:17px;color:#1c334f}
+.group-change-totals{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 9px}
+.group-total{font-size:12px;font-weight:750;padding:3px 9px;border-radius:6px}
+.group-total.added{color:#13764f;background:#eaf7f1}
+.group-total.missing{color:#a46720;background:#fff5e6}
+.group-snapshot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.group-snapshot{border:1px solid #e1e8f0;border-radius:9px;padding:10px 12px;min-width:0;background:#fcfdff}
+.group-snapshot.added{border-top:3px solid #21936e}
+.group-snapshot.missing{border-top:3px solid #d39845}
+.group-snapshot-heading{font-size:12px;font-weight:700;color:#344d66;margin:0 0 6px}
+.group-snapshot-people{display:flex;flex-direction:column;gap:1px}
+.group-snapshot-person{display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid #edf1f5;min-width:0}
+.group-snapshot-name{font-size:13px;font-weight:650;overflow-wrap:anywhere;min-width:0;color:#243448}
+.group-snapshot-time{color:#738298;white-space:nowrap;font-size:11px;flex:0 0 auto}
+.group-snapshot-empty{font-size:12px;color:#98a5b4;padding:7px 0 5px}
+.group-inline-more{background:none;border:0;color:#235fb6;font-size:12px;text-align:left;padding:6px 0 0;cursor:pointer}
+.group-inline-more:hover{text-decoration:underline}
+.group-technical{margin-top:9px;color:#6b7c90;font-size:12px}
+.group-technical>summary{display:inline-block;color:#687b90;cursor:pointer;font-size:12px}
+.group-technical[open]{border-top:1px solid #e6ebf1;padding-top:8px}
+.group-technical .group-meta{margin:6px 0;word-break:break-all}
+.group-secondary-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.group-row-actions{flex-direction:column;align-items:stretch;gap:8px;min-width:112px;max-width:200px}
+.group-row-actions .btn{white-space:normal}
+.group-extra-filters{margin:0 0 10px}
+.group-finder{padding:14px 16px;margin-bottom:8px}
+.group-finder-bar{margin-bottom:0}
+.group-directory-controls{margin:6px 0 10px}
+.group-results-heading{margin:6px 0 10px}
+@media(max-width:1080px){.group-row-actions{margin:8px 0 0 0;flex-direction:row;max-width:none;width:100%;justify-content:flex-start}.group-snapshot-grid{gap:8px}}
+@media(max-width:620px){.group-snapshot-grid{grid-template-columns:minmax(0,1fr)}.group-item{padding:12px}.group-info{flex-basis:100%}.group-row-actions{margin-left:0}}
+
+.group-pending-label{font-size:10px;color:#976715;background:#fff2d5;border-radius:4px;padding:2px 4px;white-space:nowrap}
+
+.group-snapshot-quiet{font-size:12px;color:#8694a6;margin:6px 0 2px}

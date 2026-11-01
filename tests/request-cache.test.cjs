@@ -36,3 +36,33 @@ test('已经取得的预览多条保留，末条缓存独立供小栏使用，�
  const n=N.view(N.evolve(null,{adapter:'TEAMS_REQUEST_SIGNAL_V1',observed:true,source:'VISIBLE_ROWS',count:1,meeting:false,fingerprint:'b'.repeat(64),details:[d]},1));
  assert(n.compactReason.includes('最新缓存'));assert(!n.compactReason.includes('可见消息0'));assert(n.detailText.includes('可见消息0'));
 });
+
+test('超过 20 个预览仍完整巡检后续缓存并识别本人的会话',async()=>{
+  // Browser-like async IDB cursor: an early return from onsuccess stops the
+  // cursor but the transaction still completes successfully (false "OK").
+  const records=Array.from({length:21},(_,i)=>row({id:`19:request${String(i).padStart(3,'0')}@thread.v2`}));
+  const own=row({id:'19:zz-own@thread.v2',lastMessage:msg()});
+  records.push(own);
+  const fakeDB={
+    objectStoreNames:{contains:n=>n==='conversations'},
+    close(){},
+    transaction(){
+      const tx={oncomplete:null,onabort:null,onerror:null,objectStore:()=>({openCursor(){
+        let index=0;const req={result:null};
+        const step=()=>{
+          if(index>=records.length){req.result=null;req.onsuccess?.();setImmediate(()=>tx.oncomplete?.());return;}
+          req.result={value:records[index],continue(){index++;setImmediate(step);}};
+          req.onsuccess?.();
+        };
+        setImmediate(step);return req;
+      }})};
+      return tx;
+    }
+  };
+  const idb={databases:async()=>[{name:'Teams:conversation-manager:synthetic'}],
+    open:()=>{const req={};setImmediate(()=>{req.result=fakeDB;req.onsuccess?.();});return req;}};
+  const result=await C.scan(idb,doc,async()=> '8:synthetic');
+  assert.equal(result.status,'OK');
+  assert.equal(result.details.length,20); // bounded previews, but the cursor keeps going.
+  assert.deepEqual(result.selfKeys,['message-slice-card-requests-RequestsSliceCardItem|19:zz-own@thread.v2']);
+});

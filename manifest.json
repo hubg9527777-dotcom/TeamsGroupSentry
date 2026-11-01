@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TeamsGroupSentry",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minimum_chrome_version": "120",
   "description": "本地群成员变化、可见聊天请求提醒、人员审核与安全备份工具",
   "permissions": [
@@ -30,7 +30,9 @@
         "lib/request-ui.js",
         "lib/self-evidence.js",
         "lib/isolated-reader.js",
+        "lib/member-name-ui.js",
         "lib/request-cache.js",
+        "lib/membership-ui.js",
         "content.js",
         "lib/request-view.js",
         "overlay/overlay.js"
